@@ -1,0 +1,29 @@
+{
+  "name": "@omp-console/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OMP Console control plane: HTTP API, WebSocket hub, auth, monitoring.",
+  "main": "./dist/src/index.js",
+  "bin": {
+    "omp-console": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/src/index.js",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@omp-console/protocol": "*",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

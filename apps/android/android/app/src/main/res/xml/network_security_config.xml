@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is permitted because the product supports an explicit HTTP
+  connection mode (D9) for users who have only an IP and choose not to set up
+  TLS. The app defaults to HTTPS and only uses cleartext when the user selects
+  HTTP, so this permission is not exercised otherwise.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

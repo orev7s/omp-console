@@ -1,0 +1,42 @@
+# OMP Console TLS front (domain mode, the default).
+#
+# Caddy terminates TLS with a publicly trusted certificate and proxies to the
+# control plane on loopback. The same origin also serves the built mobile UI,
+# so the browser client needs no CORS and the WebSocket shares the origin.
+#
+# Set these in the Caddy service environment before starting:
+#   OMP_CONSOLE_DOMAIN    console.example.com   (DNS A/AAAA points at this host)
+#   OMP_CONSOLE_WEB_ROOT  /opt/omp-console/web  (output of the web build)
+#   OMP_CONSOLE_UPSTREAM  127.0.0.1:8722        (control plane)
+#   OMP_CONSOLE_ACME_EMAIL  you@example.com     (optional, recommended)
+#
+# Ports 80 and 443 must be reachable for the HTTP-01 challenge and for clients.
+# Caddy renews the certificate automatically. See README.md for the IP-only and
+# private-network paths, which this file does not cover.
+{
+	# email {$OMP_CONSOLE_ACME_EMAIL}
+}
+
+{$OMP_CONSOLE_DOMAIN} {
+	encode zstd gzip
+
+	# The API and WebSocket. reverse_proxy forwards the WebSocket upgrade.
+	handle /v1/* {
+		reverse_proxy {$OMP_CONSOLE_UPSTREAM:127.0.0.1:8722}
+	}
+
+	# The mobile UI, built for the browser. Single origin with the API.
+	handle {
+		root * {$OMP_CONSOLE_WEB_ROOT:/opt/omp-console/web}
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}

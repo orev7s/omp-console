@@ -1,0 +1,41 @@
+# Local TLS front for verification and the browser end-to-end run.
+#
+# This is not the deployment config. It exists so the full HTTPS and WSS path
+# can be exercised on a machine with no domain and no reachable port 80, using
+# Caddy's local certificate authority instead of a public one. The browser still
+# validates the certificate through the trust store; nothing disables TLS
+# verification.
+#
+# Run it with:
+#   OMP_CONSOLE_WEB_ROOT=apps/android/web/dist \
+#   OMP_CONSOLE_UPSTREAM=127.0.0.1:8722 \
+#   caddy run --config installer/caddy/Caddyfile.local --adapter caddyfile
+#
+# The first run installs Caddy's local root CA into the trust stores (NSS and
+# the system bundle). That is what makes the browser and curl trust this host
+# without certificate bypass flags.
+{
+	local_certs
+	auto_https disable_redirects
+	admin off
+}
+
+https://{$OMP_CONSOLE_DEMO_HOST:localhost}:8443 {
+	encode zstd gzip
+
+	handle /v1/* {
+		reverse_proxy {$OMP_CONSOLE_UPSTREAM:127.0.0.1:8722}
+	}
+
+	handle {
+		root * {$OMP_CONSOLE_WEB_ROOT}
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+}

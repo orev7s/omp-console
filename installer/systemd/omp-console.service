@@ -1,0 +1,35 @@
+[Unit]
+Description=OMP Console control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=omp-console
+Group=omp-console
+WorkingDirectory=/opt/omp-console
+Environment=NODE_ENV=production
+Environment=OMP_CONSOLE_DATA_DIR=/var/lib/omp-console
+Environment=OMP_CONSOLE_CONFIG=/var/lib/omp-console/config.json
+Environment=OMP_CONSOLE_HOST=127.0.0.1
+Environment=OMP_CONSOLE_PORT=8722
+ExecStart=/usr/bin/node /opt/omp-console/apps/backend/dist/src/index.js
+Restart=on-failure
+RestartSec=2
+
+# Hardening: the service has no need for elevated privileges or broad access.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/var/lib/omp-console
+
+[Install]
+WantedBy=multi-user.target

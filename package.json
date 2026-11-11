@@ -1,0 +1,23 @@
+{
+  "name": "omp-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Android app and VPS control plane for running Oh My Pi agents remotely.",
+  "workspaces": [
+    "packages/*",
+    "apps/backend"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "npm run build:protocol && npm run build:backend",
+    "build:protocol": "npm run build -w @omp-console/protocol",
+    "build:backend": "npm run build -w @omp-console/backend",
+    "typecheck": "npm run typecheck -w @omp-console/protocol && npm run typecheck -w @omp-console/backend",
+    "test": "npm run build:protocol && npm run test -w @omp-console/backend",
+    "dev": "npm run build:protocol && npm run dev -w @omp-console/backend",
+    "start": "npm run start -w @omp-console/backend"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "_note": "Brief passed to the ux-skill engine to generate the OMP Console design system. See design.md provenance. Regenerate with: uxskill system build --brand '<brand>' --brief apps/android/docs/design-brief.json --out <dir> --latin-only",
+  "project_type": "mobile app",
+  "industry": "developer tools",
+  "audience": "developers and non-expert VPS owners",
+  "tone": ["calm", "competent", "fast", "trustworthy"],
+  "must_have": ["light and dark", "WCAG AA", "Material 3", "single primary action"],
+  "forbidden": ["generic template cards", "indigo default accent", "emoji icons", "gradient decoration"],
+  "product_type": "app",
+  "default_scheme": "system",
+  "reading_context": "task",
+  "age": "adults",
+  "brand_role": "fill"
+}

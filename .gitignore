@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.*
+.DS_Store
+
+# Backend runtime data
+data/
+*.sqlite
+*.sqlite3
+
+# Build output and secrets
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Android app
+apps/android/.expo/
+apps/android/android/local.properties
+apps/android/android/.gradle/
+apps/android/test-results/
+apps/android/playwright-report/
+apps/android/e2e/artifacts/

@@ -1,0 +1,53 @@
+# OMP Console TLS front (IP-only mode).
+
+# Requires Caddy 2.10.1 or newer. Older builds cannot obtain Let's Encrypt
+# certificates for a bare IP. Check with `caddy version` before using this file.
+#
+# Requirements:
+#   - The IP is the host's own public address, not behind NAT without forwarding.
+#   - Public TCP port 80 reaches Caddy, for the HTTP-01 challenge.
+#   - Network access to the Let's Encrypt production API.
+#
+# Let's Encrypt issues these certificates through the `shortlived` profile, so
+# they last about six days. Caddy renews them automatically. Do not try to renew
+# by hand.
+#
+# Set OMP_CONSOLE_PUBLIC_IP, OMP_CONSOLE_WEB_ROOT and OMP_CONSOLE_UPSTREAM in
+# the environment, or replace the placeholders, then run:
+#   caddy run --config installer/caddy/Caddyfile.ip --adapter caddyfile
+{
+	# Clients that reach a bare IP usually send no SNI, so name the IP here or
+	# Caddy cannot pick the certificate during the handshake.
+	default_sni {$OMP_CONSOLE_PUBLIC_IP}
+	# email {$OMP_CONSOLE_ACME_EMAIL}
+}
+
+https://{$OMP_CONSOLE_PUBLIC_IP} {
+	encode zstd gzip
+
+	# A bare IP cannot use the TLS-ALPN challenge reliably; HTTP-01 is enough.
+	tls {
+		issuer acme {
+			profile shortlived
+			disable_tlsalpn_challenge
+		}
+	}
+
+	handle /v1/* {
+		reverse_proxy {$OMP_CONSOLE_UPSTREAM:127.0.0.1:8722}
+	}
+
+	handle {
+		root * {$OMP_CONSOLE_WEB_ROOT:/opt/omp-console/web}
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}

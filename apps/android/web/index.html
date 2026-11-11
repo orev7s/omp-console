@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>omp.console (web harness)</title>
+    <style>
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/Inter_400Regular.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/fonts/Inter_500Medium.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/Inter_600SemiBold.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/Inter_700Bold.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/JetBrainsMono_400Regular.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/fonts/JetBrainsMono_500Medium.ttf') format('truetype');
+      }
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: #faf8f3;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+      }
+      input:focus,
+      textarea:focus {
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
