@@ -280,6 +280,7 @@ main() {
 
   build_control_plane
   build_web
+  install_installer_scripts
 
   ensure_service_user
 

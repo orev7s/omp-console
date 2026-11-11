@@ -218,6 +218,18 @@ start_control_plane() {
   fi
 }
 
+install_installer_scripts() {
+  if dry_run; then
+    log_info "Dry run: would copy the installer scripts to ${PREFIX}/installer."
+    return
+  fi
+  rm -rf "$PREFIX/installer"
+  cp -a "$INSTALLER_DIR" "$PREFIX/installer"
+  chown -R root:root "$PREFIX/installer"
+  chmod -R go-w "$PREFIX/installer"
+  log_ok "Installer scripts copied to ${PREFIX}/installer."
+}
+
 mint_pairing_code() {
   PAIRING_CODE=""
   if dry_run; then

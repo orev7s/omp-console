@@ -57,6 +57,10 @@ health_check_public() {
 }
 
 print_summary() {
+  local scripts_dir="$INSTALLER_DIR"
+  if [ -d "${PREFIX}/installer" ]; then
+    scripts_dir="${PREFIX}/installer"
+  fi
   {
     printf '\n'
     printf 'OMP Console is installed.\n'
@@ -86,8 +90,8 @@ print_summary() {
     printf '\n'
     printf '  Status:   systemctl status omp-console\n'
     printf '  Logs:     journalctl -u omp-console -f\n'
-    printf '  Diagnose: sudo %s/doctor.sh\n' "$INSTALLER_DIR"
-    printf '  Remove:   sudo %s/uninstall.sh\n' "$INSTALLER_DIR"
+    printf '  Diagnose: sudo %s/doctor.sh\n' "$scripts_dir"
+    printf '  Remove:   sudo %s/uninstall.sh\n' "$scripts_dir"
     printf '\n'
     if [ "$INSECURE_HTTP" = "true" ]; then
       printf '  WARNING: this install serves plain HTTP. Credentials and traffic are\n'

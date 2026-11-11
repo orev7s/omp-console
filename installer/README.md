@@ -151,6 +151,10 @@ sudo ./installer/uninstall.sh --purge
 `doctor.sh` checks the platform, Node, omp, services, loopback and public
 health, DNS, ports, file permissions, disk space, and recent journal errors.
 
+The installer scripts are also copied to `/opt/omp-console/installer` during
+install, so the one-command bootstrap leaves a stable `doctor.sh` and
+`uninstall.sh` behind.
+
 `uninstall.sh` removes the units and installed files. It keeps the data
 directory with `--keep-data`. It removes the service user only if this installer
 created it. It leaves Node, omp, and the Caddy binary in place because other
