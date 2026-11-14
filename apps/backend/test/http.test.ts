@@ -44,7 +44,7 @@ describe("HTTP edge cases", () => {
   });
 
   it("rate limits pairing attempts", async () => {
-    const server = await startTestServer({ rateLimit: { windowMs: 60_000, max: 2 } });
+    const server = await startTestServer({ pairingRateLimit: { windowMs: 60_000, max: 2 } });
     try {
       const first = await postPair(server, "WRONG123");
       const second = await postPair(server, "WRONG123");

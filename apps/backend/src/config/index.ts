@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ConnectionMode } from "@omp-console/protocol";
 
@@ -15,13 +15,19 @@ export interface Config {
   publicUrl: string | null;
   pairingCode: string | null;
   pairingCodeTtlMs: number;
+  /** Lifetime of a device token; null means it does not expire. */
+  deviceTokenTtlMs: number | null;
   heartbeatMs: number;
   logLevel: LogLevel;
   maxBodyBytes: number;
   maxBufferedBytes: number;
   rateLimit: { windowMs: number; max: number };
+  /** Tighter limiter applied to pairing, the most brute-forceable endpoint. */
+  pairingRateLimit: { windowMs: number; max: number };
   /** Absolute path to the persisted state file. */
   storePath: string;
+  /** Local L2 socket for the agent host. Absent until Phase 4 is installed. */
+  agentSocketPath: string;
 }
 
 export class ConfigError extends Error {}
@@ -113,6 +119,15 @@ export function loadConfig(): Config {
 
   const insecureEnv = process.env["OMP_CONSOLE_INSECURE_HTTP"];
 
+  const rateLimit = {
+    windowMs: file.rateLimit?.windowMs ?? 60_000,
+    max: file.rateLimit?.max ?? 30,
+  };
+  const pairingRateLimit = {
+    windowMs: file.pairingRateLimit?.windowMs ?? rateLimit.windowMs,
+    max: file.pairingRateLimit?.max ?? Math.min(rateLimit.max, 10),
+  };
+
   const config: Config = {
     name: file.name ?? "OMP Console",
     host: process.env["OMP_CONSOLE_HOST"] ?? file.host ?? "127.0.0.1",
@@ -122,16 +137,22 @@ export function loadConfig(): Config {
     connectionMode,
     publicUrl: process.env["OMP_CONSOLE_PUBLIC_URL"] ?? file.publicUrl ?? null,
     pairingCode: process.env["OMP_CONSOLE_PAIRING_CODE"] ?? file.pairingCode ?? null,
-    pairingCodeTtlMs: file.pairingCodeTtlMs ?? 24 * 60 * 60 * 1000,
+    pairingCodeTtlMs: file.pairingCodeTtlMs ?? 30 * 60 * 1000,
+    deviceTokenTtlMs: file.deviceTokenTtlMs ?? null,
     heartbeatMs: file.heartbeatMs ?? 15_000,
     logLevel,
     maxBodyBytes: file.maxBodyBytes ?? 64 * 1024,
     maxBufferedBytes: file.maxBufferedBytes ?? 1 * 1024 * 1024,
-    rateLimit: {
-      windowMs: file.rateLimit?.windowMs ?? 60_000,
-      max: file.rateLimit?.max ?? 30,
-    },
+    rateLimit,
+    pairingRateLimit,
     storePath: file.storePath ?? join(dataDir, "state.json"),
+    agentSocketPath:
+      process.env["OMP_CONSOLE_AGENT_SOCKET"] ??
+      join(
+        process.env["OMP_AGENT_HOST_RUNTIME_DIR"] ??
+          join(tmpdir(), "omp-console-agent-host"),
+        "agent-host.sock",
+      ),
   };
 
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {

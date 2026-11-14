@@ -191,12 +191,16 @@ load_marker() {
 stop_existing_services() {
   if [ ! -r "$MARKER" ] &&
     [ ! -f /etc/systemd/system/omp-console.service ] &&
+    [ ! -f /etc/systemd/system/omp-console-agent-host.service ] &&
     [ ! -f /etc/systemd/system/omp-console-caddy.service ]; then
     return 0
   fi
   log_info "Stopping existing services for the update."
   if service_active omp-console-caddy; then
     run systemctl stop omp-console-caddy
+  fi
+  if service_active omp-console-agent-host; then
+    run systemctl stop omp-console-agent-host
   fi
   if service_active omp-console; then
     run systemctl stop omp-console
@@ -278,11 +282,12 @@ main() {
   install_node
   install_omp
 
-  build_control_plane
+  build_server
   build_web
   install_installer_scripts
 
   ensure_service_user
+  prepare_agent_host_dirs
 
   if [ "$CADDY_MODE" != "none" ]; then
     install_caddy
@@ -297,7 +302,9 @@ main() {
   fi
 
   render_control_unit
+  render_agent_host_unit
   start_control_plane
+  start_agent_host
 
   if [ "$CADDY_MODE" != "none" ]; then
     start_caddy

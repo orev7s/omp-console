@@ -4,6 +4,7 @@ import type { ConnectionMode } from '@omp-console/protocol';
 
 const CONFIG_KEY = 'omp-console.server';
 const TOKEN_SERVICE = 'omp-console.device-token';
+const DEVICE_ID_KEY = 'omp-console.device-id';
 
 export interface StoredServerConfig {
   host: string;
@@ -37,4 +38,16 @@ export async function loadDeviceToken(): Promise<string | null> {
 
 export async function clearDeviceToken(): Promise<void> {
   await Keychain.resetGenericPassword({ service: TOKEN_SERVICE });
+}
+
+export async function saveDeviceId(id: string): Promise<void> {
+  await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+}
+
+export async function loadDeviceId(): Promise<string | null> {
+  return AsyncStorage.getItem(DEVICE_ID_KEY);
+}
+
+export async function clearDeviceId(): Promise<void> {
+  await AsyncStorage.removeItem(DEVICE_ID_KEY);
 }

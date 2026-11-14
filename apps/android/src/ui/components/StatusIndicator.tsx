@@ -8,7 +8,7 @@ export type StatusState = 'offline' | 'connecting' | 'live' | 'error';
 interface StatusIndicatorProps {
   state: StatusState;
   label?: string;
-  size?: 'inline' | 'hero';
+  size?: 'dot' | 'compact' | 'inline' | 'hero';
   testID?: string;
   style?: StyleProp<ViewStyle>;
 }
@@ -58,20 +58,30 @@ export function StatusIndicator({
   const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
   const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
 
+  const labelText = label ?? DEFAULT_LABEL[state];
+  const dotSize = size === 'compact' || size === 'dot' ? 8 : 10;
+  const textVariant = size === 'hero' ? 'title2' : size === 'compact' ? 'bodySm' : 'body';
+
   return (
     <View
       testID={testID}
       accessibilityRole="text"
-      accessibilityLabel={label ?? DEFAULT_LABEL[state]}
+      accessibilityLabel={labelText}
       style={[{ flexDirection: 'row', alignItems: 'center', gap: theme.space[2] }, style]}>
-      <View style={{ width: 10, height: 10, alignItems: 'center', justifyContent: 'center' }}>
-        {state === 'connecting' && !reduced ? (
+      <View
+        style={{
+          width: dotSize,
+          height: dotSize,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        {state === 'connecting' && !reduced && size !== 'dot' ? (
           <Animated.View
             style={{
               position: 'absolute',
-              width: 10,
-              height: 10,
-              borderRadius: 5,
+              width: dotSize,
+              height: dotSize,
+              borderRadius: dotSize / 2,
               backgroundColor: dotColor[state],
               opacity: ringOpacity,
               transform: [{ scale: ringScale }],
@@ -80,18 +90,20 @@ export function StatusIndicator({
         ) : null}
         <View
           style={{
-            width: 10,
-            height: 10,
-            borderRadius: 5,
+            width: dotSize,
+            height: dotSize,
+            borderRadius: dotSize / 2,
             backgroundColor: dotColor[state],
           }}
         />
       </View>
-      <Text
-        variant={size === 'hero' ? 'title2' : 'body'}
-        color={state === 'error' ? theme.color.status.danger : theme.color.text.primary}>
-        {label ?? DEFAULT_LABEL[state]}
-      </Text>
+      {size === 'dot' ? null : (
+        <Text
+          variant={textVariant}
+          color={state === 'error' ? theme.color.status.danger : theme.color.text.primary}>
+          {labelText}
+        </Text>
+      )}
     </View>
   );
 }

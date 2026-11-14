@@ -121,7 +121,7 @@ safe_rm_rf() {
 
 stop_services() {
   local svc
-  for svc in omp-console omp-console-caddy; do
+  for svc in omp-console omp-console-agent-host omp-console-caddy; do
     if service_active "$svc"; then
       run systemctl stop "$svc"
     fi
@@ -133,13 +133,13 @@ stop_services() {
 
 remove_units() {
   local unit
-  for unit in /etc/systemd/system/omp-console.service /etc/systemd/system/omp-console-caddy.service; do
+  for unit in /etc/systemd/system/omp-console.service /etc/systemd/system/omp-console-agent-host.service /etc/systemd/system/omp-console-caddy.service; do
     if [ -e "$unit" ]; then
       run rm -f "$unit"
     fi
   done
   run systemctl daemon-reload
-  run systemctl reset-failed omp-console omp-console-caddy 2>/dev/null || true
+  run systemctl reset-failed omp-console omp-console-agent-host omp-console-caddy 2>/dev/null || true
 }
 
 remove_service_user() {

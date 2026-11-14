@@ -110,7 +110,7 @@ export function ConnectScreen(): React.JSX.Element {
       setSubmitting(true);
       const ok = await connect();
       setSubmitting(false);
-      if (ok) navigation.replace('Home');
+      if (ok) navigation.replace('Sessions');
       return;
     }
     navigation.navigate('Pair', { code: params?.code });
@@ -221,8 +221,11 @@ export function ConnectScreen(): React.JSX.Element {
                   testIDPrefix="cert"
                 />
                 <Text variant="caption" color={theme.color.text.tertiary}>
-                  Domain and IP certificates are publicly trusted. A private
-                  network uses your own network.
+                  {cert === 'domain'
+                    ? 'Point a DNS name at this server. Caddy obtains and renews a trusted certificate.'
+                    : cert === 'ip'
+                      ? 'Use the public IP. Port 80 must be reachable from the internet for the short-lived certificate, which Caddy renews.'
+                      : 'Use a Tailscale or WireGuard name. The certificate comes from your private network.'}
                 </Text>
               </View>
             ) : null}

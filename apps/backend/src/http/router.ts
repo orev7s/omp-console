@@ -1,9 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Scope } from "@omp-console/protocol";
+import type { AgentHostClient } from "../agenthost/client.js";
 import type { Config } from "../config/index.js";
 import type { Logger } from "../log/index.js";
 import type { Store } from "../store/index.js";
 import type { AuthService } from "../auth/index.js";
 import type { DeviceRecord } from "../store/types.js";
+import type { WsHub } from "../ws/hub.js";
+import type { SessionRegistry } from "../sessions/registry.js";
 
 export interface RequestContext {
   req: IncomingMessage;
@@ -14,11 +18,19 @@ export interface RequestContext {
   requestId: string;
   remote: string;
   device: DeviceRecord | null;
+  /** Path parameters captured by the router, for example `:id`. */
+  params: Record<string, string>;
   body: unknown;
   log: Logger;
   config: Config;
   store: Store;
   auth: AuthService;
+  /** Used to drop live sockets the instant a device is revoked. */
+  hub: WsHub;
+  /** Optional L2 connection to the agent host. Never spawns `omp`. */
+  agent: AgentHostClient;
+  /** Reconstructable session view fed by L2 events. */
+  registry: SessionRegistry;
 }
 
 export interface RouteResult {
@@ -30,8 +42,10 @@ export type RouteHandler = (ctx: RequestContext) => Promise<RouteResult> | Route
 
 export interface RouteOptions {
   requireAuth: boolean;
-  /** Apply the shared rate limiter to this route, keyed by remote address. */
-  rateLimit?: boolean;
+  /** Minimum scope the authenticated device must hold. */
+  scope?: Scope;
+  /** Which limiter bucket applies; defaults to the general bucket. */
+  rateLimit?: "default" | "pairing";
 }
 
 export interface Route {

@@ -1,13 +1,48 @@
 import { z } from "zod";
+import type { Scope } from "./auth.js";
 import { AgentStateSchema, ConnectionModeSchema, TimestampSchema } from "./common.js";
 import { ApiErrorSchema } from "./errors.js";
 
 /** Well-known topics a client can subscribe to. */
 export const TOPICS = {
   serverStatus: "server.status",
+  agentStatus: "agent.status",
 } as const;
 
 export type Topic = (typeof TOPICS)[keyof typeof TOPICS];
+
+/** Topic that carries a single session's live event stream. */
+export function sessionEventTopic(sessionId: string): string {
+  return `session:${sessionId}.events`;
+}
+
+/** True when a topic is a session event stream. */
+export function isSessionEventTopic(topic: string): boolean {
+  return topic.startsWith("session:") && topic.endsWith(".events");
+}
+
+/** Extracts the session id from a session event topic, or null. */
+export function sessionIdFromTopic(topic: string): string | null {
+  if (!isSessionEventTopic(topic)) return null;
+  const id = topic.slice("session:".length, topic.length - ".events".length);
+  return id.length > 0 ? id : null;
+}
+
+/**
+ * Minimum scope required to subscribe to a topic. Topics absent from this map
+ * require only a valid device credential. Session event streams require `read`.
+ * This is the single place scope gating for subscriptions is declared.
+ */
+export const TOPIC_REQUIRED_SCOPE: Readonly<Record<string, Scope>> = {
+  [TOPICS.serverStatus]: "read",
+  [TOPICS.agentStatus]: "read",
+};
+
+/** Scope required for any topic, including dynamic session topics. */
+export function topicRequiredScope(topic: string): Scope | undefined {
+  if (isSessionEventTopic(topic)) return "read";
+  return TOPIC_REQUIRED_SCOPE[topic];
+}
 
 /** Every frame, both directions, carries the protocol version and a timestamp. */
 const frameBase = {

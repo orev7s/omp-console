@@ -86,6 +86,18 @@ export const hitTarget = {
   code: 64,
 } as const;
 
+/**
+ * Row heights for dense list chrome, matched to the web app's compact rows.
+ * These are structural dimensions, not touch targets, so they sit below
+ * `hitTarget`; the pressable still gets hitSlop where the row is short.
+ */
+export const rowHeight = {
+  compact: 36,
+  tab: 42,
+  dense: 44,
+  settings: 48,
+} as const;
+
 export const duration = {
   instant: 0,
   fast: 120,
@@ -104,8 +116,13 @@ export const typeScale = {
   display: { size: 32, weight: '700', lineHeight: 1.15, tracking: -0.32 },
   title1: { size: 24, weight: '700', lineHeight: 1.2, tracking: -0.24 },
   title2: { size: 19, weight: '600', lineHeight: 1.25, tracking: -0.19 },
+  title3: { size: 16, weight: '600', lineHeight: 1.3, tracking: 0 },
   body: { size: 16, weight: '400', lineHeight: 1.45, tracking: 0 },
   bodyStrong: { size: 16, weight: '600', lineHeight: 1.45, tracking: 0 },
+  // Dense UI and chat text. 14/12 is the working range for rows, transcript
+  // text, and anything that needs to fit more on screen.
+  bodySm: { size: 14, weight: '400', lineHeight: 1.5, tracking: 0 },
+  bodySmStrong: { size: 14, weight: '600', lineHeight: 1.5, tracking: 0 },
   label: { size: 14, weight: '600', lineHeight: 1.35, tracking: 0 },
   caption: { size: 12, weight: '400', lineHeight: 1.45, tracking: 0 },
   overline: { size: 12, weight: '600', lineHeight: 1.3, tracking: 1.2 },

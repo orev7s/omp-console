@@ -7,9 +7,11 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ConnectScreen } from '../features/connect/ConnectScreen';
 import { DebugScreen } from '../features/debug/DebugScreen';
-import { HomeScreen } from '../features/home/HomeScreen';
+import { DevicesScreen } from '../features/devices/DevicesScreen';
 import { WelcomeScreen } from '../features/onboarding/WelcomeScreen';
 import { PairScreen } from '../features/pair/PairScreen';
+import { SessionScreen } from '../features/sessions/SessionScreen';
+import { SessionsScreen } from '../features/sessions/SessionsScreen';
 import type { RootStackParamList, RouteName } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -21,7 +23,9 @@ const linking: LinkingOptions<RootStackParamList> = {
       Welcome: '',
       Connect: 'connect',
       Pair: 'pair',
-      Home: 'home',
+      Sessions: 'sessions',
+      Session: 'session/:id?',
+      Devices: 'devices',
       Debug: 'debug',
     },
   },
@@ -47,7 +51,9 @@ export function AppNavigator({
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Connect" component={ConnectScreen} />
         <Stack.Screen name="Pair" component={PairScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Sessions" component={SessionsScreen} />
+        <Stack.Screen name="Session" component={SessionScreen} />
+        <Stack.Screen name="Devices" component={DevicesScreen} />
         <Stack.Screen name="Debug" component={DebugScreen} />
       </Stack.Navigator>
     </NavigationContainer>

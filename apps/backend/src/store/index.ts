@@ -1,15 +1,15 @@
 import { readJson, writeJsonAtomic } from "../util/atomic-json.js";
-import { randomId } from "../util/id.js";
-import { STORE_SCHEMA_VERSION, type StoreData } from "./types.js";
+import { defaultStoreData, migrateStore } from "./migrate.js";
+import type { StoreData } from "./types.js";
 
-export function defaultStoreData(): StoreData {
-  return {
-    schemaVersion: STORE_SCHEMA_VERSION,
-    serverId: randomId(12),
-    pairing: { codeHash: null, expiresAt: null },
-    devices: [],
-  };
-}
+export { defaultStoreData } from "./migrate.js";
+export { STORE_SCHEMA_VERSION } from "./types.js";
+export type {
+  DeviceRecord,
+  PairingCodeRecord,
+  ProjectRecord,
+  StoreData,
+} from "./types.js";
 
 /**
  * Small persisted state with atomic writes and serialized saves. Phase 1 data
@@ -24,15 +24,8 @@ export class Store {
   ) {}
 
   static async open(path: string): Promise<Store> {
-    const data = await readJson<StoreData>(path, defaultStoreData());
-    // Tolerate forward-compatible files by filling missing fields.
-    const merged: StoreData = {
-      schemaVersion: STORE_SCHEMA_VERSION,
-      serverId: data.serverId ?? randomId(12),
-      pairing: data.pairing ?? { codeHash: null, expiresAt: null },
-      devices: Array.isArray(data.devices) ? data.devices : [],
-    };
-    return new Store(path, merged);
+    const raw = await readJson<unknown>(path, defaultStoreData());
+    return new Store(path, migrateStore(raw));
   }
 
   get data(): StoreData {

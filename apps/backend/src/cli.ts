@@ -25,7 +25,10 @@ async function main(): Promise<void> {
         process.stdout.write("No paired devices.\n");
       } else {
         for (const d of devices) {
-          process.stdout.write(`${d.id}\t${d.name}\t${d.createdAt}\t${d.lastSeenAt ?? "never"}\n`);
+          const status = d.revokedAt ? "revoked" : "active";
+          process.stdout.write(
+            `${d.id}\t${d.name}\t${status}\t${d.scopes.join(",")}\t${d.createdAt}\t${d.lastSeenAt ?? "never"}\n`,
+          );
         }
       }
       break;

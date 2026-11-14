@@ -12,7 +12,8 @@
     "apk:release": "cd android && ./gradlew assembleRelease",
     "web": "vite --config vite.config.mjs",
     "build:web": "vite build --config vite.config.mjs",
-    "e2e:web": "npm run build:web && playwright test --config playwright.config.ts"
+    "e2e:web": "npm run build:web && playwright test --config playwright.config.ts",
+    "shots": "node e2e/screenshot.mjs"
   },
   "dependencies": {
     "@omp-console/protocol": "file:../../packages/protocol",

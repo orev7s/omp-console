@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ScopeSchema } from "./auth.js";
 import { AgentStateSchema, ConnectionModeSchema, TimestampSchema } from "./common.js";
 
 /** GET /v1/health (unauthenticated). */
@@ -49,6 +50,10 @@ export const PairResponseSchema = z.object({
   serverName: z.string().min(1),
   apiVersion: z.number().int().positive(),
   wsProtocolVersion: z.number().int().positive(),
+  /** Scopes granted to the new device. */
+  scopes: z.array(ScopeSchema),
+  /** When the device token expires; null means it does not. */
+  tokenExpiresAt: TimestampSchema.nullable(),
 });
 
 export type PairResponse = z.infer<typeof PairResponseSchema>;

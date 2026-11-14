@@ -2,8 +2,12 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import {
   ClientFrameSchema,
+  TOPICS,
   WS_PROTOCOL_VERSION,
+  hasScope,
+  topicRequiredScope,
   type AgentState,
+  type AgentStatusEvent,
   type HelloData,
   type ServerStatusEvent,
 } from "@omp-console/protocol";
@@ -25,6 +29,7 @@ export interface WsHubOptions {
   authorize: (token: string | null) => DeviceRecord | null;
   helloData: (connectionId: string) => HelloData;
   statusData: () => ServerStatusEvent;
+  agentStatusData: () => AgentStatusEvent;
   maxBufferedBytes: number;
 }
 
@@ -141,7 +146,19 @@ export class WsHub {
     const frame = parsed.data;
     switch (frame.type) {
       case "subscribe": {
-        for (const topic of frame.topics) conn.topics.add(topic);
+        for (const topic of frame.topics) {
+          const required = topicRequiredScope(topic);
+          if (required && !hasScope(conn.device.scopes, required)) {
+            this.opts.logger.warn("Subscription denied by scope.", {
+              connectionId: conn.id,
+              deviceId: conn.device.id,
+              topic,
+              required,
+            });
+            continue;
+          }
+          conn.topics.add(topic);
+        }
         this.send(conn, {
           type: "response",
           v: WS_PROTOCOL_VERSION,
@@ -151,8 +168,12 @@ export class WsHub {
           data: { topics: [...conn.topics] },
         });
         // Send an immediate snapshot so the client does not wait a heartbeat.
-        if (conn.topics.has("server.status")) {
-          this.sendEvent(conn, "server.status", this.opts.statusData());
+        // Session event topics replay from REST instead, so they get no snapshot.
+        if (conn.topics.has(TOPICS.serverStatus)) {
+          this.sendEvent(conn, TOPICS.serverStatus, this.opts.statusData());
+        }
+        if (conn.topics.has(TOPICS.agentStatus)) {
+          this.sendEvent(conn, TOPICS.agentStatus, this.opts.agentStatusData());
         }
         break;
       }
@@ -248,6 +269,27 @@ export class WsHub {
 
   connectionCount(): number {
     return this.connections.size;
+  }
+
+  /**
+   * Close every live connection belonging to a device. Called the moment a
+   * device is revoked so the old socket stops receiving events instead of
+   * lingering until the next heartbeat or reconnect.
+   */
+  disconnectDevice(deviceId: string, reason: string): void {
+    for (const conn of this.connections.values()) {
+      if (conn.device.id !== deviceId) continue;
+      try {
+        conn.socket.close(1008, reason);
+      } catch {
+        // ignore
+      }
+      this.connections.delete(conn.id);
+      this.opts.logger.info("Closed live connection for revoked device.", {
+        connectionId: conn.id,
+        deviceId,
+      });
+    }
   }
 
   closeAll(): void {

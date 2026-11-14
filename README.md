@@ -1,7 +1,10 @@
 # OMP Console
 
-Run and control Oh My Pi (`omp`) coding agents on your own VPS from a phone-sized
-UI in the browser or, later, an Android app.
+OMP Console is a coding environment you run on your own VPS and drive from a
+phone-sized UI in the browser or, later, an Android app. It is not a chat app, a
+dashboard, or a terminal wrapper. The point is to run Oh My Pi (`omp`) coding
+agents on real projects and let you watch and steer the work. Chat, monitoring,
+files, and the terminal all exist to serve that.
 
 OMP Console is two pieces: a Node.js control plane that runs on the VPS, and a
 React Native UI that builds for the browser today and for Android when the APK
@@ -13,11 +16,26 @@ is mobile-first, not a desktop dashboard.
 - Phase 1, connectivity foundation: done. The browser client is served over
   HTTPS with a publicly trusted certificate and passes pairing, health, WSS,
   echo, server events, and reconnect after a control-plane restart.
-- Phase 2, installer and onboarding: in progress. Domain and HTTP modes are
-  verified on a real VPS, including rerun, uninstall, and fresh reinstall.
-  IP-only needs public port 80, which the current host refuses. arm64 and musl
-  are untested.
-- Phases 3 to 9 are not started. See `roadmap.md`.
+- Phase 2, installer and onboarding: done (closed 2026-11-11). Domain and HTTP
+  modes are verified on a real VPS, including rerun, uninstall, and fresh
+  reinstall. IP-only needs public port 80, which the current host refuses. arm64
+  and musl are untested.
+- Phase 3, secure device enrollment and multi-device: done. Backend enrollment,
+  scopes, revocation, rotation, and expiry pass the backend suite. The app
+  Devices screen, re-pair flow, deep link, and optional QR are wired. Not
+  verified on a real Android device.
+- Phase 4, Oh My Pi integration and agent host: done. The agent host owns a real
+  `omp --mode rpc` child per session, negotiates protocol v2, maps events to L2,
+  supervises restarts, and runs restricted sessions inside bubblewrap. The
+  control plane reports agent state over L2.
+- Phase 5, agent sessions and the live run view (with the session-first shell),
+  is in progress. The full session and project API, the agent host session
+  title, messages, model, thinking, stats, steer, follow-up, and `queue.update`,
+  and the app shell with a density UI pass (Markdown, collapsible Thinking and
+  tool blocks, no icons) are built. The run view wires prompt and abort; the
+  model, thinking, stats, steer, and follow-up controls are not surfaced in the
+  UI yet. See `roadmap.md`, ADR 0008, and `docs/phase-reports/phase-5.md`.
+- Phases 6 to 9 are not started. See `roadmap.md`.
 
 The live reference instance is `https://13-63-44-162.sslip.io` on a VPS, with a
 Let's Encrypt certificate from `sslip.io`. It is a test instance, not a service

@@ -26,6 +26,10 @@ interface ScreenProps {
   titleTestID?: string;
   contentStyle?: StyleProp<ViewStyle>;
   maxWidth?: number;
+  /** Pinned just below the top bar, outside the scroll region. */
+  header?: React.ReactNode;
+  /** Gap between top-level children in the body. Defaults to space[6]. */
+  contentGap?: number;
 }
 
 /**
@@ -45,13 +49,16 @@ export function Screen({
   titleTestID,
   contentStyle,
   maxWidth = 840,
+  header,
+  contentGap,
 }: ScreenProps): React.JSX.Element {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const showTopBar = Boolean(onBack || trailing);
+  const gap = contentGap ?? theme.space[6];
 
   const body = (
-    <View style={{ width: '100%', maxWidth, alignSelf: 'center', gap: theme.space[6] }}>
+    <View style={{ width: '100%', maxWidth, alignSelf: 'center', gap }}>
       {title || subtitle ? (
         <View style={{ gap: theme.space[2] }}>
           {title ? (
@@ -106,6 +113,8 @@ export function Screen({
             {trailing}
           </View>
         ) : null}
+
+        {header ? <View style={{ flexShrink: 0 }}>{header}</View> : null}
 
         {scroll ? (
           <ScrollView

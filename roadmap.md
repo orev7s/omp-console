@@ -7,15 +7,19 @@ Principle: one phase at a time, each phase independently testable and
 verifiable. Do not start a phase until the previous phase's completion criteria
 are met, unless a human explicitly authorizes parallel work.
 
+Product frame: OMP Console is a coding environment, not a chat app or a
+dashboard. Phases 5 to 9 all serve running and steering coding agents on real
+projects.
+
 ## Current status
 
 | Phase | Title | Status |
 | --- | --- | --- |
 | 1 | VPS to Android connectivity foundation | Done. Browser client served over HTTPS with a publicly trusted certificate and verified end to end (pairing, health and meta, WSS, echo, server events, reconnect after a control-plane restart). Node 26 confirmed, 26 backend tests pass. The Android APK is deferred until the web version is finished. |
-| 2 | One-command installer and onboarding | In progress. Installer, uninstaller, doctor, Caddy service, and mode handling built. Verified on this VPS: full install, rerun, uninstall, fresh reinstall, domain mode with a public certificate, HTTP mode, and omp. IP-only mode is blocked because port 80 is not reachable externally. arm64 and musl are untested. |
-| 3 | Secure device enrollment and multi-device | Not started |
-| 4 | Oh My Pi integration layer and agent host | Not started |
-| 5 | Agent sessions and real-time chat | Not started |
+| 2 | One-command installer and onboarding | Done (closed by decision, 2026-11-11). Installer, uninstaller, doctor, Caddy service, and mode handling built. Verified on this VPS (x86_64, glibc): full install, rerun, uninstall, fresh reinstall, domain mode with a public certificate, HTTP mode, and omp. Not verified: IP-only mode (port 80 is not reachable externally on this host), arm64, and musl. |
+| 3 | Secure device enrollment and multi-device | Done (2026-11-11). Backend enrollment, scopes, revocation, rotation, and expiry are covered by the backend suite. The app Devices screen, re-pair flow, deep link plus optional QR, and mode switching are wired and typechecked. Not verified on a real Android device. IP-only mode is still blocked here. |
+| 4 | Oh My Pi integration layer and agent host | Done (2026-11-11). Agent host service, L2 package and socket, real-omp RPC client, supervisor with backoff and circuit breaker, session manager, event mapper, capability probe, bubblewrap confinement modes, control-plane L2 client, systemd unit and installer wiring. 56 tests pass (36 backend, 20 agent host), including real omp, real socket, real bubblewrap, restart independence, and orphan cleanup. Not verified: a full systemd install on a fresh host. |
+| 5 | Agent sessions and the live run view | In progress (2026-11-11). The full L1 session API (list, create, detail, prompt, abort, messages with cursor and limit, models, model, thinking, stats, steer, follow-up), the project registry (list, add, remove), the agent host session title, messages, paged messages, model, thinking, stats, steer, follow-up, and `queue.update`, and the session-first app shell (ADR 0008) with a density UI pass are built. The suites hold 70 backend tests, 20 agent host tests, and 71 app (Jest) tests. Not verified: a browser run of the shell, and a real device. Still open in the app UI: model and thinking selectors, stats, steer and follow-up controls, the queue display, and transcript load-more. See `docs/phase-reports/phase-5.md`. |
 | 6 | Process supervision and VPS monitoring | Not started |
 | 7 | Projects and file management | Not started |
 | 8 | Terminal | Not started |
@@ -251,6 +255,12 @@ case, and the explicit HTTP case.
 Deferred: unattended automatic enrollment (Phase 3), upgrade channels, the
 private-network onboarding flow if not complete.
 
+Closure note (2026-11-11): closed by decision to unblock Phase 3. Verified on
+this VPS (x86_64, glibc): install, rerun, uninstall, fresh reinstall, domain mode
+with a public certificate, HTTP mode, and `omp`. Not verified and carried as
+known gaps: IP-only mode (port 80 is not reachable externally here), arm64, and
+musl.
+
 ---
 
 ## Phase 3 - Secure device enrollment and multi-device
@@ -280,6 +290,28 @@ revocable, and revocation is enforced immediately on live connections.
 
 Deferred: hosted broker auto-enrollment.
 
+Progress (2026-11-11): backend enrollment core landed. Store schema v2 with
+in-place migration; short-lived single-use pairing codes; device registry with
+list, rename, revoke, and rotate; soft-delete revocation that also drops live
+WebSockets; enforced `read`/`agent`/`manage` scopes on REST and WebSocket
+subscriptions; tighter pairing rate limit. See
+`docs/decisions/0006-enrollment-and-scopes.md`. Still open: app Devices UI,
+QR/deep-link pairing delivery, the guided IP-only onboarding flow, and the
+HTTP-mode warning review.
+
+Completion note (2026-11-11): the app half landed. The Devices screen lists,
+renames, revokes, and rotates the current device's token; the Home screen links
+to Devices and to Connection so the mode can be changed without re-pairing; a
+revoked or expired token now offers a Pair again path; the installer prints an
+`ompconsole://pair` deep link and, when `qrencode` is installed, a QR of the same
+link. Verification: backend typecheck and 36/36 backend tests pass, the app
+typechecks, the web production build succeeds, and the installer scripts pass
+`bash -n`. The browser build was also walked at a 390x844 phone viewport against
+a real backend: pair over plain HTTP, reach Home, open Devices, see both a
+second device and "This device", open the revoke confirmation, and revoke it
+immediately. Not verified: a real Android device (deep link, QR scan, Keystore,
+native WebSocket), the IP-only certificate path, and arm64 or musl.
+
 ---
 
 ## Phase 4 - Oh My Pi integration layer and agent host
@@ -287,13 +319,45 @@ Deferred: hosted broker auto-enrollment.
 Objective: control `omp` from the VPS safely and observably, with a real process
 boundary and independent restartability, and no UI polish yet.
 
+Scope change accepted (2026-11-11). Phase 4 now includes two agent confinement
+modes, enforced in the agent host at spawn time. `unrestricted` (default) runs
+`omp` with full host access, like a normal `omp` install. `restricted` runs each
+`omp` child in a bubblewrap sandbox bound to one workspace folder, with a
+dedicated unprivileged user as backstop. The mode is a server default with a
+per-project override (the override lands with the project registry, Phase 7).
+See ADR 0007 and `spec.md` section 12.7. Fold these into the deliverables and
+completion criteria when Phase 4 work starts.
+
+Completed (2026-11-11): the agent host is a separate service. It owns one `omp`
+child per session with lazy start, a single-instance lock, process groups,
+runtime-state reconciliation for orphans, exponential backoff with a circuit
+breaker, protocol v2 negotiation, strict `rpc_chunk` reassembly, per-command
+timeouts and cancellation, and stdout drain on shutdown. The event mapper
+translates OMP frames into the L2 model, and the capability probe reports the
+omp version, protocol versions, commands, and login providers. Confinement modes
+land per ADR 0007, with `restricted` running a full real session inside
+bubblewrap. The control plane has an L2 client that reconnects and reports agent
+state, wired into `/v1/meta` and `server.status`. The installer builds and
+installs both services and adds the agent host systemd unit.
+
+Tests: 56 pass (36 backend, 20 agent host) on Node 26.13.1, including one real
+`omp` v18.18.9 prompt over the keyless Kilo AI Gateway model, a real L2 socket
+session, a full restricted session inside bubblewrap, a crash-restart, a
+control-plane reconnect that leaves the child pid unchanged, and orphan
+reconciliation. Not verified: a full installer run on a fresh host (the live
+deployment was not disturbed). The per-project confinement override is Phase 7.
+
 Deliverables:
 
 - `apps/agent-host/`: a separate Node.js service that owns all `omp` children.
   Modules: supervisor, RPC client, session manager, event mapper, L2 server,
-  capability probe.
+  capability probe, sandbox.
 - `packages/agent-protocol/`: the L2 protocol between the control plane and the
   agent host.
+- Agent confinement modes (ADR 0007): `unrestricted` (default) and `restricted`
+  (a bubblewrap sandbox per child, bound to one workspace folder, with a
+  dedicated unprivileged user as backstop). Server default with a per-project
+  override. Refuse to start a restricted child when the sandbox is unavailable.
 - Validate, against actual OMP behavior, that each proposed mechanism works
   before relying on it: process ownership, control-plane restart without agent
   restart, session adoption from disk, orphan handling, and restart backoff. Do
@@ -339,16 +403,74 @@ Deferred: rich chat UI (Phase 5), monitoring UI (Phase 6).
 
 ---
 
-## Phase 5 - Agent sessions and real-time chat
+## Phase 5 - Agent sessions and the live run view
 
-Objective: the core mobile experience: create and manage sessions and chat with
-the agent in real time.
+Objective: the core product surface. Create, open, switch, and resume sessions,
+watch a real agent run live (assistant text, thinking, and every tool call as it
+happens), then steer it.
+
+Scope change accepted (2026-11-11). Phase 5 now includes the app shell. Today the
+shell is connection-centric: `Home` confirms the connection and links out to
+Devices, Connection, and Activity. That made sense while reaching the server was
+the whole product. Now that sessions are the product, the shell becomes
+session-first, following the OpenCode interface: a session list grouped by
+recency with the project folder under each title, open sessions kept in an in-app
+tab strip, and the connection and device controls moved into a settings sheet.
+The connection status shrinks to a compact live element in the shell chrome. See
+ADR 0008. Icons are limited to the brand mark and the abstract status glyphs; no
+per-session or navigation iconography.
+
+Progress (2026-11-11): the backend and agent host halves are built, and the app
+shell plus a density UI pass have landed. The L1 session API covers list, create,
+detail, prompt, abort, messages (cursor and limit), models, model, thinking,
+stats, steer, and follow-up; projects are list, add, and remove; agent-dependent
+routes return a retryable 503 `agent_unavailable`; scopes are `read`, `agent`, and
+`manage`. The session registry builds transcripts from L2 events and session
+streams broadcast on `session:<id>.events`. The agent host adds a session title,
+`session.messages`, paged messages, model and thinking changes, stats, steer,
+follow-up, and `queue.update`. The app is session-first per ADR 0008: the Sessions
+landing, the session tab strip, the live run view, and the settings sheet, with a
+UI pass that matches OpenCode density (compact rows and type, Markdown in
+messages, collapsible Thinking and tool blocks labeled in words, no icons).
+Verification: the backend suite holds 70 tests (up from 55), the agent host 20,
+and the app 71 Jest tests; the app typechecks and the web build succeeds. Not
+verified: a browser run of the shell and a real device. Still open in the app UI:
+model and thinking selectors, session stats, steer and follow-up controls, the
+queue display, and transcript load-more (the API and store methods exist, but no
+control calls them), and the landing list does not yet refresh live from
+`agent.status`. See `docs/phase-reports/phase-5.md`.
 
 Deliverables:
 
-- Session list, create, open, switch, and resume.
-- Streaming chat: assistant text, thinking, and tool execution events rendered
-  live.
+Backend (the L1 session API, none of which exists yet):
+
+- `GET /v1/sessions` (list, cursor paginated), `POST /v1/sessions` (create), and
+  `GET /v1/sessions/:id` (detail and current state).
+- `POST /v1/sessions/:id/prompt`, `POST /v1/sessions/:id/abort`, and the steer
+  and follow-up equivalents the runtime supports.
+- `GET /v1/sessions/:id/messages` (paged transcript backfill).
+- Model and thinking-level support: list available models, set the model and the
+  thinking level for a session, and report session stats and context usage.
+- WebSocket topics for a session: the event stream (assistant text, thinking,
+  tool execution, turn and retry lifecycle) with per-topic sequence numbers and a
+  bounded replay buffer for resume, plus agent status. Routed to the agent host
+  over L2.
+
+App shell (ADR 0008):
+
+- A session-first landing screen: recent sessions grouped by Today, Yesterday,
+  Earlier, each row showing the session title and the project folder; a New
+  session primary action.
+- An in-app tab strip for open sessions, with the active tab and a horizontal
+  scroll when it overflows. Tabs are a session switcher, not routes.
+- Connection status as a compact live element in the shell chrome; the full
+  server details, Devices, Connection, and Activity moved into a settings sheet.
+- Onboarding (Welcome, Connect, Pair) stays as it is.
+
+Live run view:
+
+- Streaming render of assistant text, thinking, and tool execution events, with a
+  clear working and thinking state.
 - Send prompt, steer, follow up, and abort.
 - Queue display and management where supported.
 - Model and thinking-level selection; session stats and context usage.
@@ -358,14 +480,17 @@ Deliverables:
 
 Dependencies: Phase 3 auth and scopes, Phase 4 agent host.
 
-Testing: scripted agent events drive UI states deterministically; transcript
+Testing: scripted agent events drive the run view deterministically; transcript
 pagination and reconnect resume tested; abort and steer tested; errors mapped to
-clear UI states.
+clear UI states; the browser end-to-end harness covers the landing, opening a
+session, and a streamed run.
 
-Completion: a user can run a real conversation from the phone, including abort
-and model changes, and reconnect without losing transcript continuity.
+Completion: from the browser build, a user can create a session, watch a real
+agent run with live tool calls, steer and abort it, change the model, and
+reconnect without losing transcript continuity.
 
-Deferred: subagents, goals, multi-project navigation.
+Deferred: subagents, goals, and multi-project navigation. The landing groups by
+time and shows the folder; the project registry itself is Phase 7.
 
 ---
 

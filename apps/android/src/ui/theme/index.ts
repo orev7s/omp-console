@@ -2,7 +2,7 @@
  * The theme. Screens call `useTheme()` and read semantic roles only.
  */
 import { useColorScheme, type ViewStyle } from 'react-native';
-import { borderWidth, hitTarget, radius, space } from './primitives';
+import { borderWidth, hitTarget, radius, rowHeight, space } from './primitives';
 import { motion } from './motion';
 import { darkColors, lightColors, type ThemeColors } from './semantic';
 import { buildTypeStyles, type TypeStyles } from './typography';
@@ -16,6 +16,7 @@ export interface Theme {
   radius: typeof radius;
   border: typeof borderWidth;
   hit: typeof hitTarget;
+  row: typeof rowHeight;
   type: TypeStyles;
   motion: typeof motion;
   elevation: {
@@ -67,6 +68,7 @@ export const lightTheme: Theme = {
   radius,
   border: borderWidth,
   hit: hitTarget,
+  row: rowHeight,
   type: typeStyles,
   motion,
   elevation: lightElevation,
@@ -79,6 +81,7 @@ export const darkTheme: Theme = {
   radius,
   border: borderWidth,
   hit: hitTarget,
+  row: rowHeight,
   type: typeStyles,
   motion,
   elevation: darkElevation,

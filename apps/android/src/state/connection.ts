@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import type { ConnectionMode, ServerFrame } from '@omp-console/protocol';
-import { ApiClient } from '../api/client';
+import { TOPICS } from '@omp-console/protocol';
+import { ApiClient, ApiError } from '../api/client';
 import { buildUrls, isSecureMode } from '../api/url';
 import { RealtimeClient, type RealtimeStatus } from '../realtime/client';
 import {
+  clearDeviceId,
   clearDeviceToken,
+  loadDeviceId,
   loadDeviceToken,
   loadServerConfig,
+  saveDeviceId,
   saveDeviceToken,
   saveServerConfig,
 } from '../storage/secure';
@@ -34,6 +38,8 @@ export interface LogEntry {
 interface ConnectionStore {
   config: ConnectionConfig;
   token: string | null;
+  /** This device's server-side id, used to mark and rotate the current device. */
+  deviceId: string | null;
   realtime: RealtimeStatus;
   agent: AgentInfo | null;
   lastError: ConnectionError | null;
@@ -49,12 +55,25 @@ interface ConnectionStore {
   pair(code: string): Promise<boolean>;
   connect(): Promise<boolean>;
   disconnect(): void;
+  /** Swap the stored token after a successful rotation. */
+  updateToken(token: string): Promise<void>;
   sendEcho(message: string): void;
   clearLog(): void;
   forgetDevice(): Promise<void>;
 }
 
 const MAX_LOG = 100;
+
+/**
+ * The single app-wide realtime client, created with the connection store. Other
+ * stores (the session store) attach frame listeners and manage subscriptions
+ * through this accessor so the app keeps exactly one WebSocket.
+ */
+let realtimeClient: RealtimeClient | null = null;
+
+export function getRealtimeClient(): RealtimeClient | null {
+  return realtimeClient;
+}
 
 function appendLog(log: LogEntry[], text: string): LogEntry[] {
   const next: LogEntry[] = [{ at: Date.now(), text }, ...log];
@@ -83,8 +102,9 @@ export const useConnection = create<ConnectionStore>((set, get) => {
       if (!token || config.host.trim() === '') return null;
       return { url: buildUrls(config).ws, token };
     },
-    subscribeTopics: ['server.status'],
+    subscribeTopics: ['server.status', TOPICS.agentStatus],
   });
+  realtimeClient = realtime;
 
   realtime.onStatus((status: RealtimeStatus) => {
     set(state => ({
@@ -111,6 +131,7 @@ export const useConnection = create<ConnectionStore>((set, get) => {
   return {
     config: { host: '', port: 443, mode: 'https_domain', deviceName: 'Android device' },
     token: null,
+    deviceId: null,
     realtime: realtime.getStatus(),
     agent: null,
     lastError: null,
@@ -123,7 +144,8 @@ export const useConnection = create<ConnectionStore>((set, get) => {
       try {
         const stored = await loadServerConfig();
         const token = await loadDeviceToken();
-        set(state => ({ config: stored ?? state.config, token }));
+        const deviceId = await loadDeviceId();
+        set(state => ({ config: stored ?? state.config, token, deviceId }));
       } catch {
         // Storage unavailable: start fresh rather than block the app.
       } finally {
@@ -150,14 +172,25 @@ export const useConnection = create<ConnectionStore>((set, get) => {
         const client = new ApiClient(buildUrls(config));
         const result = await client.pair(code.trim(), config.deviceName);
         await saveDeviceToken(result.deviceToken);
+        await saveDeviceId(result.deviceId);
         set(state => ({
           token: result.deviceToken,
+          deviceId: result.deviceId,
           busy: false,
           log: appendLog(state.log, 'Device paired'),
         }));
         return true;
       } catch (error) {
-        set({ busy: false, lastError: describeError(error) });
+        const mapped =
+          error instanceof ApiError && error.code === 'unauthorized'
+            ? {
+                code: 'unauthorized',
+                title: 'Code not accepted',
+                message: 'That pairing code was not accepted. Generate a new one on your server.',
+                retryable: true,
+              }
+            : describeError(error);
+        set({ busy: false, lastError: mapped });
         return false;
       }
     },
@@ -196,13 +229,27 @@ export const useConnection = create<ConnectionStore>((set, get) => {
         realtime.connect();
         return true;
       } catch (error) {
-        set({ busy: false, lastError: describeError(error) });
+        const mapped =
+          error instanceof ApiError && error.code === 'unauthorized'
+            ? {
+                code: 'unauthorized',
+                title: 'Signed out',
+                message: 'This phone was signed out or its token expired. Pair it again with a new code.',
+                retryable: false,
+              }
+            : describeError(error);
+        set({ busy: false, lastError: mapped });
         return false;
       }
     },
 
     disconnect() {
       realtime.disconnect();
+    },
+
+    async updateToken(next) {
+      await saveDeviceToken(next);
+      set({ token: next });
     },
 
     sendEcho(message) {
@@ -217,8 +264,9 @@ export const useConnection = create<ConnectionStore>((set, get) => {
       realtime.disconnect();
       try {
         await clearDeviceToken();
+        await clearDeviceId();
       } finally {
-        set({ token: null, agent: null, everConnected: false, lastError: null });
+        set({ token: null, deviceId: null, agent: null, everConnected: false, lastError: null });
       }
     },
   };

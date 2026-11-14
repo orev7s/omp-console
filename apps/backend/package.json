@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@omp-console/agent-protocol": "*",
     "@omp-console/protocol": "*",
     "ws": "^8.18.0",
     "zod": "^3.23.8"

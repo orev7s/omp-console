@@ -8,6 +8,9 @@
 : "${SERVICE_USER:=omp-console}"
 : "${SERVICE_GROUP:=omp-console}"
 : "${PORT:=8722}"
+: "${RUNTIME_DIR:=${DATA_DIR}/run}"
+: "${AGENT_DATA_DIR:=${DATA_DIR}/agent-host}"
+: "${AGENT_CONFINEMENT:=unrestricted}"
 
 run_as() {
   local user="$1"
@@ -39,9 +42,9 @@ ensure_service_user() {
   SERVICE_USER_CREATED=1
 }
 
-build_control_plane() {
+build_server() {
   if dry_run; then
-    log_info "Dry run: would build the control plane and install it under ${PREFIX}."
+    log_info "Dry run: would build the control plane and agent host under ${PREFIX}."
     return
   fi
   local build_stage
@@ -49,8 +52,8 @@ build_control_plane() {
   build_stage="$(make_temp_dir)"
   runtime_stage="$(make_temp_dir)"
 
-  log_info "Building the control plane from ${SOURCE_DIR}."
-  run mkdir -p "$build_stage/apps/backend" "$build_stage/packages"
+  log_info "Building the control plane and agent host from ${SOURCE_DIR}."
+  run mkdir -p "$build_stage/apps/backend" "$build_stage/apps/agent-host" "$build_stage/packages"
   run cp -a "$SOURCE_DIR/package.json" "$SOURCE_DIR/package-lock.json" "$SOURCE_DIR/tsconfig.base.json" "$build_stage/"
   (
     cd "$SOURCE_DIR/packages"
@@ -64,21 +67,30 @@ build_control_plane() {
   ) || {
     run cp -a "$SOURCE_DIR/apps/backend/." "$build_stage/apps/backend/"
   }
+  (
+    cd "$SOURCE_DIR/apps/agent-host"
+    tar -cf - --exclude=node_modules --exclude=dist . | (cd "$build_stage/apps/agent-host" && tar -xf -)
+  ) || {
+    run cp -a "$SOURCE_DIR/apps/agent-host/." "$build_stage/apps/agent-host/"
+  }
 
   (
     cd "$build_stage"
     npm ci --no-audit --no-fund
     npm run build:protocol
+    npm run build:agent-protocol
     npm run build:backend
+    npm run build:agent-host
   ) || {
     rm -rf "$build_stage" "$runtime_stage"
-    die "The control plane build failed. Check the npm output above."
+    die "The server build failed. Check the npm output above."
   }
 
   run cp -a "$build_stage/package.json" "$build_stage/package-lock.json" "$build_stage/tsconfig.base.json" "$runtime_stage/"
   run cp -a "$build_stage/packages" "$runtime_stage/"
   run mkdir -p "$runtime_stage/apps"
   run cp -a "$build_stage/apps/backend" "$runtime_stage/apps/"
+  run cp -a "$build_stage/apps/agent-host" "$runtime_stage/apps/"
 
   (
     cd "$runtime_stage"
@@ -204,10 +216,47 @@ render_control_unit() {
     -e "s|@NODE_BIN@|${NODE_BIN}|g" \
     -e "s|@BIND_HOST@|${BIND_HOST}|g" \
     -e "s|@PORT@|${PORT}|g" \
+    -e "s|@RUNTIME_DIR@|${RUNTIME_DIR}|g" \
     "$template" >"$rendered"
   run install -m 0644 "$rendered" /etc/systemd/system/omp-console.service
   rm -f "$rendered"
   run systemctl daemon-reload
+}
+
+prepare_agent_host_dirs() {
+  ensure_dir "$RUNTIME_DIR" 0700 "${SERVICE_USER}:${SERVICE_GROUP}"
+  ensure_dir "$AGENT_DATA_DIR" 0700 "${SERVICE_USER}:${SERVICE_GROUP}"
+  ensure_dir "$AGENT_DATA_DIR/sessions" 0700 "${SERVICE_USER}:${SERVICE_GROUP}"
+  ensure_dir "$AGENT_DATA_DIR/workspaces" 0700 "${SERVICE_USER}:${SERVICE_GROUP}"
+}
+
+render_agent_host_unit() {
+  local template="${INSTALLER_DIR}/systemd/omp-console-agent-host.service.in"
+  [ -r "$template" ] || die "Agent host unit template not found: ${template}."
+  local rendered_dir rendered
+  rendered_dir="$(make_temp_dir)"
+  rendered="${rendered_dir}/omp-console-agent-host.service"
+  sed \
+    -e "s|@SERVICE_USER@|${SERVICE_USER}|g" \
+    -e "s|@SERVICE_GROUP@|${SERVICE_GROUP}|g" \
+    -e "s|@PREFIX@|${PREFIX}|g" \
+    -e "s|@DATA_DIR@|${DATA_DIR}|g" \
+    -e "s|@AGENT_DATA_DIR@|${AGENT_DATA_DIR}|g" \
+    -e "s|@RUNTIME_DIR@|${RUNTIME_DIR}|g" \
+    -e "s|@CONFINEMENT@|${AGENT_CONFINEMENT}|g" \
+    -e "s|@NODE_BIN@|${NODE_BIN}|g" \
+    "$template" >"$rendered"
+  run install -m 0644 "$rendered" /etc/systemd/system/omp-console-agent-host.service
+  rm -f "$rendered"
+  run systemctl daemon-reload
+}
+
+start_agent_host() {
+  if service_active omp-console-agent-host; then
+    run systemctl restart omp-console-agent-host
+  else
+    run systemctl enable --now omp-console-agent-host
+  fi
 }
 
 start_control_plane() {

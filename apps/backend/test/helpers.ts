@@ -1,6 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Scope } from "@omp-console/protocol";
 import type { Config } from "../src/config/index.js";
 import { createLogger } from "../src/log/index.js";
 import { Store } from "../src/store/index.js";
@@ -33,12 +34,15 @@ function testConfig(dataDir: string, overrides: Partial<Config> = {}): Config {
     publicUrl: null,
     pairingCode: TEST_PAIRING_CODE,
     pairingCodeTtlMs: 60_000,
+    deviceTokenTtlMs: null,
     heartbeatMs: 150,
     logLevel: "error",
     maxBodyBytes: 16 * 1024,
     maxBufferedBytes: 256 * 1024,
     rateLimit: { windowMs: 60_000, max: 1000 },
+    pairingRateLimit: { windowMs: 60_000, max: 1000 },
     storePath: join(dataDir, "state.json"),
+    agentSocketPath: join(dataDir, "agent-host.sock"),
     ...overrides,
   };
 }
@@ -70,6 +74,41 @@ export async function startTestServer(overrides: Partial<Config> = {}): Promise<
       await app.stop();
     },
   };
+}
+
+/** Poll a synchronous condition until it holds or the timeout elapses. */
+export async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 3_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("condition was not met before the timeout");
+}
+
+/**
+ * Pair a device with an explicit scope set. Requires the server to run with
+ * `pairingCode: null` so each minted code is distinct.
+ */
+export async function pairWithScopes(
+  server: TestServer,
+  scopes: Scope[],
+  deviceName = "scoped-device",
+): Promise<string> {
+  const code = await server.auth.createPairingCode({ scopes });
+  const res = await fetch(`${server.baseUrl}/v1/pair`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, deviceName }),
+  });
+  const body = (await res.json()) as { deviceToken?: string };
+  if (!res.ok || !body.deviceToken) {
+    throw new Error(`Pairing failed: ${res.status} ${JSON.stringify(body)}`);
+  }
+  return body.deviceToken;
 }
 
 export async function pairDevice(server: TestServer, deviceName = "test-device"): Promise<string> {

@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 
+/** Control-plane port the dev server proxies to; override for a preview. */
+const upstreamPort = process.env.OMP_CONSOLE_UPSTREAM_PORT ?? '8722';
+
 /**
  * Vite config for the browser build of the same mobile UI, rendered with
  * react-native-web. It is served by Caddy at the same origin as the API and is
@@ -54,7 +57,7 @@ export default {
     strictPort: true,
     proxy: {
       '/v1': {
-        target: 'http://127.0.0.1:8722',
+        target: `http://127.0.0.1:${upstreamPort}`,
         changeOrigin: true,
         ws: true,
       },

@@ -4,6 +4,11 @@ This repository builds OMP Console: an Android app (React Native, TypeScript)
 and a VPS backend (Node.js, TypeScript) that let a user run and control Oh My Pi
 (`omp`) coding agents on their own server.
 
+OMP Console is a coding environment, not a chat app or a dashboard. Running and
+steering coding agents on real projects is the product. Chat, monitoring, files,
+and the terminal exist to serve that, and nothing should be framed as a
+standalone messaging or admin surface.
+
 Read `spec.md` for the architecture and `roadmap.md` for the plan. When this file
 and any other document disagree, `spec.md` wins for architecture and this file
 wins for process.
@@ -62,7 +67,7 @@ omp-console/
     src/{http,ws,auth,agenthost,monitor,store,config,log,util}/
     test/
   apps/agent-host/             @omp-console/agent-host: OMP owner (Phase 4+)
-    src/{supervisor,rpc,sessions,events,server,config,log,util}/
+    src/{supervisor,rpc,sessions,events,server,sandbox,capabilities,config,log}/
     test/
   apps/android/                React Native app (Community CLI, no Expo)
     android/                   native Android project (Gradle)
@@ -179,6 +184,11 @@ Process ownership and recovery (see `spec.md` section 12):
 
 - One `omp` child per active session, owned by the agent host, each in its own
   process group.
+- Agent confinement is a mode set on the server and overridable per project:
+  `unrestricted` (default) or `restricted` (a bubblewrap sandbox bound to one
+  workspace folder, with a dedicated unprivileged user as backstop). Enforce it
+  only in the agent host. If `restricted` is selected and the sandbox is
+  unavailable, refuse to start the child, never fall back to `unrestricted`.
 - Never let a control-plane restart restart `omp`. If a change would make that
   happen, stop and raise it.
 - Single instance per service: take an exclusive lock file. A second instance

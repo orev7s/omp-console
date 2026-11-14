@@ -48,14 +48,18 @@ test('onboards from welcome to connected, then shows the activity log', async ({
   await page.screenshot({ path: `${ARTIFACTS}/pair-light.png` });
   await page.getByTestId('pair-button').click();
 
-  // Home, connected over the secure mode.
-  await expect(page.getByTestId('screen-home')).toBeVisible();
+  // Sessions, the session-first landing, connected over the secure mode.
+  await expect(page.getByTestId('screen-sessions')).toBeVisible();
   await expect(page.getByTestId('status-label')).toContainText(/connected/i);
-  await expect(page.getByTestId('secure-badge')).toBeVisible();
-  await page.screenshot({ path: `${ARTIFACTS}/home-light.png` });
+  await page.screenshot({ path: `${ARTIFACTS}/sessions-light.png` });
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.screenshot({ path: `${ARTIFACTS}/home-dark.png` });
+  await page.screenshot({ path: `${ARTIFACTS}/sessions-dark.png` });
   await page.emulateMedia({ colorScheme: 'light' });
+
+  // Settings is the door to server details, Connection, Devices, and Activity.
+  await page.getByTestId('sessions-settings').click();
+  await expect(page.getByTestId('settings-sheet')).toBeVisible();
+  await expect(page.getByTestId('secure-badge')).toBeVisible();
 
   // Debug: the raw log lives here now, and the echo round trips.
   await page.getByTestId('debug-link').click();
@@ -112,5 +116,5 @@ test('shows a friendly error for a wrong pairing code', async ({ page }) => {
   const error = page.getByTestId('pair-error');
   await expect(error).toBeVisible();
   await expect(error).toContainText(/not accepted/i);
-  await expect(page.getByTestId('screen-home')).toHaveCount(0);
+  await expect(page.getByTestId('screen-sessions')).toHaveCount(0);
 });

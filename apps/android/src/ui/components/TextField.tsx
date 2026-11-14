@@ -26,6 +26,7 @@ interface TextFieldProps {
   returnKeyType?: 'done' | 'go' | 'next' | 'send';
   onSubmitEditing?: () => void;
   secureTextEntry?: boolean;
+  multiline?: boolean;
   editable?: boolean;
   testID?: string;
   inputTestID?: string;
@@ -50,6 +51,7 @@ export function TextField({
   returnKeyType,
   onSubmitEditing,
   secureTextEntry,
+  multiline = false,
   editable = true,
   testID,
   inputTestID,
@@ -84,6 +86,8 @@ export function TextField({
         returnKeyType={returnKeyType}
         onSubmitEditing={onSubmitEditing}
         secureTextEntry={secureTextEntry}
+        multiline={multiline}
+        textAlignVertical={multiline ? 'top' : undefined}
         editable={editable}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -92,8 +96,10 @@ export function TextField({
         accessibilityState={{ disabled: !editable }}
         style={[
           theme.type.body,
+          multiline
+            ? { minHeight: theme.hit.large, paddingVertical: theme.space[3] }
+            : { height: theme.hit.large },
           {
-            height: theme.hit.large,
             borderRadius: theme.radius.md,
             borderWidth: focused || error ? theme.border.emphasis : theme.border.control,
             borderColor,

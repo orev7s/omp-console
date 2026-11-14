@@ -1,5 +1,5 @@
 import type { ClientFrame, ServerFrame } from '@omp-console/protocol';
-import { WS_PROTOCOL_VERSION } from '@omp-console/protocol';
+import { WS_PROTOCOL_VERSION, sessionEventTopic } from '@omp-console/protocol';
 import { Platform } from 'react-native';
 
 export type RealtimeState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
@@ -21,21 +21,37 @@ export interface RealtimeOptions {
 
 const MAX_BACKOFF_MS = 15_000;
 
+/** The wire schema caps a subscribe frame at 32 topics, so batch below that. */
+const MAX_TOPICS_PER_FRAME = 32;
+
+function chunks<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /**
  * One WebSocket client for the app. Owns reconnect with backoff and jitter, the
  * heartbeat ping, and re-subscription after a reconnect.
+ *
+ * Subscriptions are held as a desired-topic set that survives a reconnect: the
+ * full set is re-sent on every open, so screens can subscribe and unsubscribe at
+ * runtime without knowing the socket state.
  */
 export class RealtimeClient {
   private socket: WebSocket | null = null;
   private status: RealtimeStatus = { state: 'idle', attempt: 0, lastError: null };
   private readonly statusListeners = new Set<StatusListener>();
   private readonly frameListeners = new Set<FrameListener>();
+  private readonly desiredTopics = new Set<string>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private shouldRun = false;
   private counter = 0;
 
-  constructor(private readonly options: RealtimeOptions) {}
+  constructor(private readonly options: RealtimeOptions) {
+    for (const topic of options.subscribeTopics) this.desiredTopics.add(topic);
+  }
 
   onStatus(listener: StatusListener): () => void {
     this.statusListeners.add(listener);
@@ -74,8 +90,36 @@ export class RealtimeClient {
     this.send({ type: 'echo', id: this.nextId(), v: WS_PROTOCOL_VERSION, ts: Date.now(), message });
   }
 
-  subscribe(topics: string[]): void {
+  /** Adds topics to the desired set and subscribes now if connected. */
+  subscribeTo(topics: string[]): void {
+    const added = topics.filter(topic => !this.desiredTopics.has(topic));
+    if (added.length === 0) return;
+    for (const topic of added) this.desiredTopics.add(topic);
+    for (const batch of chunks(added, MAX_TOPICS_PER_FRAME)) this.sendSubscribe(batch);
+  }
+
+  /** Removes topics from the desired set and unsubscribes now if connected. */
+  unsubscribeFrom(topics: string[]): void {
+    const removed = topics.filter(topic => this.desiredTopics.has(topic));
+    if (removed.length === 0) return;
+    for (const topic of removed) this.desiredTopics.delete(topic);
+    for (const batch of chunks(removed, MAX_TOPICS_PER_FRAME)) this.sendUnsubscribe(batch);
+  }
+
+  subscribeSession(id: string): void {
+    this.subscribeTo([sessionEventTopic(id)]);
+  }
+
+  unsubscribeSession(id: string): void {
+    this.unsubscribeFrom([sessionEventTopic(id)]);
+  }
+
+  private sendSubscribe(topics: string[]): void {
     this.send({ type: 'subscribe', id: this.nextId(), v: WS_PROTOCOL_VERSION, ts: Date.now(), topics });
+  }
+
+  private sendUnsubscribe(topics: string[]): void {
+    this.send({ type: 'unsubscribe', id: this.nextId(), v: WS_PROTOCOL_VERSION, ts: Date.now(), topics });
   }
 
   private nextId(): string {
@@ -117,8 +161,10 @@ export class RealtimeClient {
 
     socket.onopen = () => {
       this.setStatus({ state: 'connected', attempt: 0, lastError: null });
-      if (this.options.subscribeTopics.length > 0) {
-        this.subscribe(this.options.subscribeTopics);
+      // Re-send the full desired set so a reconnect restores every subscription.
+      const topics = [...this.desiredTopics];
+      if (topics.length > 0) {
+        for (const batch of chunks(topics, MAX_TOPICS_PER_FRAME)) this.sendSubscribe(batch);
       }
       this.startHeartbeat();
     };

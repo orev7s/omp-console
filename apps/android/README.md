@@ -1,8 +1,9 @@
 # OMP Console Android app
 
-Bare React Native (Community CLI) with TypeScript. No Expo. This is the client
-half of Phase 1: it connects to the OMP Console control plane over HTTP and
-WebSocket.
+Bare React Native (Community CLI) with TypeScript. No Expo. The client half of
+OMP Console, a coding environment for running and steering Oh My Pi (`omp`)
+coding agents. It builds for Android and for the browser, and talks only to the
+control plane over HTTP and WebSocket.
 
 ## Prerequisites
 

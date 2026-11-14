@@ -13,6 +13,7 @@ Environment=OMP_CONSOLE_DATA_DIR=@DATA_DIR@
 Environment=OMP_CONSOLE_CONFIG=@CONFIG_FILE@
 Environment=OMP_CONSOLE_HOST=@BIND_HOST@
 Environment=OMP_CONSOLE_PORT=@PORT@
+Environment=OMP_AGENT_HOST_RUNTIME_DIR=@RUNTIME_DIR@
 ExecStart=@NODE_BIN@ @PREFIX@/apps/backend/dist/src/index.js
 Restart=on-failure
 RestartSec=2

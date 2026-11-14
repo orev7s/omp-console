@@ -1,12 +1,27 @@
 # OMP Console installer
 
-One command on a Linux VPS. It detects the platform, installs Node LTS and
-`omp`, builds and installs the control plane, configures Caddy for the chosen
-connection mode, installs the systemd units, starts the services, runs health
-checks, and prints a pairing code.
+One command on a Linux VPS. It installs OMP Console, a coding environment for
+running Oh My Pi (`omp`) coding agents on your own server. It detects the
+platform, installs Node LTS and `omp`, builds and installs the control plane,
+configures Caddy for the chosen connection mode, installs the systemd units,
+starts the services, runs health checks, and prints a pairing code.
 
-The installer is source-based for Phase 2. Clone the repo on the VPS, then run
-it from the checkout. A hosted one-liner belongs with the later onboarding work.
+The installer is source-based. Clone the repo on the VPS, then run it from the
+checkout. A hosted one-liner belongs with the later onboarding work.
+
+## Services
+
+The installer writes two systemd units:
+
+- `omp-console.service`: the control plane.
+- `omp-console-agent-host.service`: the agent host, which owns the `omp`
+  children.
+
+The agent host listens on `${DATA_DIR}/run/agent-host.sock` and keeps sessions
+under `${DATA_DIR}/agent-host`. Default confinement is `unrestricted`. To confine
+each child with bubblewrap, install `bubblewrap` and set
+`OMP_AGENT_HOST_CONFINEMENT=restricted` in `/etc/omp-console/agent-host.env`, then
+restart `omp-console-agent-host`.
 
 ## Quick start
 
@@ -66,7 +81,9 @@ cloud provider's security group. Open TCP 80 and 443 there for the TLS modes.
 | `/usr/local/bin/caddy` | Caddy 2.11.9 when the system Caddy is older than 2.10.1. |
 | `/usr/local/lib/nodejs/` | Node 26 when the system Node is not 24 or 26. |
 
-It does not install the agent host. That is Phase 4. The control plane runs with
+It installs both services: the control plane and the agent host. The agent host
+owns the `omp` children and listens on a local Unix socket under the data
+directory. The control plane runs with
 `omp` absent.
 
 ## Options
@@ -112,6 +129,15 @@ sudo systemctl restart omp-console
 
 Restart the service after minting. The running process keeps the code it loaded at
 startup, so a new code written to the store is only seen after a restart.
+
+The summary also prints a deep link of the form
+`ompconsole://pair?host=...&port=...&mode=...&code=...`. Opening it takes the app
+straight to the pairing screen with the address, connection mode, port, and code
+already filled in. If `qrencode` is installed on the server, the installer prints
+a scannable QR of the same link; otherwise it prints the link only. The link
+carries the live pairing code, so treat it exactly like the code: short-lived and
+single use. Deep links need the Android build installed; the browser build uses
+the code by hand.
 
 ## Idempotency and updates
 

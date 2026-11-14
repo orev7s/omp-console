@@ -1,6 +1,8 @@
 # OMP Console - Technical Specification
 
-Status: Draft for review. No implementation has started.
+Status: Living document. Phases 1 to 4 are implemented, and Phase 5 (agent
+sessions and the live run view, including the session-first shell) is in
+progress; `roadmap.md` is the source of truth for phase status.
 Project name: OMP Console (repository `omp-console`). Confirmed by the reviewer.
 
 This document describes the complete intended product and separates what ships
@@ -10,6 +12,12 @@ and `AGENTS.md` for the rules agents must follow.
 ---
 
 ## 1. Purpose and scope
+
+OMP Console is a coding environment. It is not a chat app, a passive console, or
+a general-purpose dashboard. The product exists to run Oh My Pi (`omp`) coding
+agents on real projects on a server the user owns, and to let them watch and
+steer that work from a phone. Chat is how you drive the agent, not the point.
+Monitoring, files, and the terminal are supporting tools for the same job.
 
 OMP Console is an Android application plus a small VPS service that let a person
 run and control Oh My Pi (`omp`) coding agents on their own server from a phone,
@@ -50,9 +58,9 @@ restarting the agents (section 12).
 - Running the backend on Windows. Server support is Linux first.
 - Rust or Go components until a measurable requirement justifies them.
 
-### Phase 1 scope (the only thing authorized to build now)
+### Phase 1 scope (historical)
 
-Phase 1 proves the communication foundation: the app connects to a real control
+Phase 1 proved the communication foundation: the app connects to a real control
 plane on a VPS over HTTPS and WSS, verifies health, exchanges messages, shows
 connection state, and handles failure and reconnect. No agent integration, no
 agent host, no monitoring, no file or terminal features.
@@ -313,8 +321,9 @@ enforce single ownership), `eventMapper` (OMP events to the L2 model),
 Layering, outside in:
 
 - `app/` (navigation): the navigator and screen registration only.
-- `features/`: one folder per feature (`connect`, later `sessions`, `chat`,
-  `monitor`, `files`, `terminal`). Each owns its screens, hooks, components.
+- `features/`: one folder per feature (`onboarding`, `connect`, `pair`,
+  `devices`, `sessions`, later `monitor`, `files`, `terminal`). Each owns its
+  screens, hooks, components.
 - `realtime/`: WebSocket client, reconnect state machine, subscriptions,
   sequence/replay handling.
 - `api/`: typed REST client built on `packages/protocol`.
@@ -328,6 +337,25 @@ edge; reconnect and backoff live in one place; no feature imports another
 feature's internals. The connection screen owns mode selection (HTTPS default;
 HTTP opt-in behind an explicit confirmation and a persistent warning) and stores
 the chosen mode per server, and nothing downgrades the scheme automatically.
+
+The shell (Phase 5, ADR 0008) is session-first. The `Sessions` landing groups
+recent sessions by recency (Today, Yesterday, Earlier) and shows the project
+folder per row; the `Session` route renders the active tab. Open sessions are kept
+in an in-app tab strip (horizontal and scrollable on a phone), and the tab set and
+active tab are app state in the session store, not router state. The run view
+streams the active session's transcript: assistant text renders as Markdown
+(paragraphs, headings, lists, fenced code, links, bold, italic, and inline code),
+user messages render in a sunken bubble, other non-assistant frames render as a
+muted mono block, and thinking and tool calls sit in collapsible blocks,
+collapsed by default, with
+plain-word headers (`Thought`, `Ran bash`, `Tool read`), the tool status shown as
+a word inside, and the disclosure shown as the word Show or Hide rather than a
+glyph. Server details, Devices, Connection, and Activity move into a settings
+sheet, and connection status shrinks to a compact live element in the shell
+chrome. The app ships no icon set beyond the brand mark and the abstract
+functional glyphs; rows, tabs, and actions are labeled with words. There is no
+project rail in Phase 5: the OpenCode rail is project-based and needs the project
+registry (Phase 7), so the landing is the selector until then.
 
 The visual system is specified in `design.md` and implemented in `src/ui/theme`
 (tokens) and `src/ui/components` (primitives). Screens in `src/features/` read
@@ -426,13 +454,26 @@ response; cursor-based pagination where lists can grow; strict `zod` validation
 rejecting unknown fields where practical; version negotiation that rejects
 unsupported versions with a clear error.
 
-Planned endpoint groups (indicative): `GET /v1/health` (unauthenticated liveness
-and minimal info); `GET /v1/meta` (authenticated capabilities and `omp` version);
-`POST /v1/pair`; `GET /v1/devices`, `DELETE /v1/devices/:id`;
-`GET /v1/sessions`, `POST /v1/sessions`; `POST /v1/sessions/:id/prompt`,
-`POST /v1/sessions/:id/abort`; `GET /v1/sessions/:id/messages` (paged);
-`GET /v1/metrics/current`, `GET /v1/logs`; `GET /v1/projects`, `GET /v1/files`.
-Anything streaming or long-lived uses WebSocket, not polling.
+Implemented endpoint groups (as of Phase 5): `GET /v1/health` (unauthenticated
+liveness and minimal info); `GET /v1/meta` (authenticated capabilities and `omp`
+version); `POST /v1/pair`; `GET /v1/devices`, `PATCH /v1/devices/:id`,
+`DELETE /v1/devices/:id`, `POST /v1/devices/:id/rotate`; `GET /v1/projects`,
+`POST /v1/projects`, `DELETE /v1/projects/:id`; `GET /v1/sessions`,
+`POST /v1/sessions`, `GET /v1/sessions/:id`, `POST /v1/sessions/:id/prompt`,
+`POST /v1/sessions/:id/abort`, `GET /v1/sessions/:id/messages` (cursor and
+`limit`), `GET /v1/sessions/:id/models`, `POST /v1/sessions/:id/model`,
+`POST /v1/sessions/:id/thinking`, `GET /v1/sessions/:id/stats`,
+`POST /v1/sessions/:id/steer`, `POST /v1/sessions/:id/follow-up`.
+
+Scopes: reads (meta, device list, project list, session list, session detail,
+models, stats, messages) require `read`; `POST /v1/sessions`, prompt, abort,
+model, thinking, steer, and follow-up require `agent`; device and project
+changes require `manage`. Agent-dependent routes return a retryable 503
+`agent_unavailable` when the agent host is not connected.
+
+Not yet built: `GET /v1/metrics/current` and `GET /v1/logs` (Phase 6), and
+`GET /v1/files` (Phase 7). Anything streaming or long-lived uses WebSocket, not
+polling.
 
 ---
 
@@ -465,12 +506,18 @@ token as a `bearer.<token>` subprotocol; header auth takes precedence.
   responses (echoing `id`) or events.
 - Envelope `{ v, type, id?, ts, ...payload }`. Every frame carries the protocol
   version `v`; unknown `type` values are ignored, not fatal.
-- Topics: a client subscribes to what it needs (`server.metrics`, `server.logs`,
-  `agent.status`, `session:<id>.events`), so the backend sends only subscribed
-  events and multi-device traffic stays bounded.
-- Sequence numbers per topic plus a bounded replay buffer let a reconnecting
-  device resume without reloading state. Durable history (transcripts) comes
-  from REST, not replay.
+- Topics today: `server.status`, `agent.status`, and `session:<id>.events` for
+  each open session. A client subscribes to what it needs, so the backend sends
+  only subscribed events and multi-device traffic stays bounded. `agent.status`
+  carries the agent-level state plus the session list, so a session change is a
+  status change for every subscriber. A session topic carries that session's
+  normalized events (assistant text, thinking, tool execution, turn and retry
+  lifecycle, and `queue.update` for the pending prompt depth). Session topics
+  are scope-gated on `read`. `server.metrics` and `server.logs` arrive with
+  monitoring (Phase 6).
+- Events carry a per-topic sequence number. A bounded replay buffer for resume
+  is not built yet: a reconnecting device re-subscribes and refetches durable
+  history (transcripts) from REST, not from replay.
 - Heartbeat ping/pong with idle timeout to detect half-open connections.
 - Backpressure: per-connection outbound queues with limits; a slow device is
   disconnected rather than allowed to stall the agent or grow memory.
@@ -489,6 +536,15 @@ concepts with no HTTP or auth concerns; callers are trusted by socket
 permissions, not tokens. The control plane reconnects and re-subscribes after its
 own restart, which is what makes control-plane restarts independent of agent
 lifetimes.
+
+L2 requests today: `agent.status`, `agent.capabilities`, `session.create`,
+`session.list`, `session.get`, `session.prompt`, `session.abort`,
+`session.messages`, `session.messagesPage`, `session.availableModels`,
+`session.setModel`, `session.setThinking`, `session.stats`, `session.steer`,
+`session.followUp`, `session.subscribe`, `session.unsubscribe`, and
+`session.close`. The agent host streams `agent.state`, `session.state`, and
+`session.event` events back over the same socket. No L1 or L2 request name is an
+OMP frame name.
 
 ---
 
@@ -615,6 +671,40 @@ children from acting on the same session.
 | Host reboot | children gone, sessions re-adopted lazily | starts via systemd |
 
 The system never restarts `omp` merely because the control plane restarted.
+
+### 12.7 Agent confinement modes (ADR 0007)
+
+Two modes decide how much of the host an `omp` child can reach, enforced at spawn
+time in the agent host (the only component that spawns `omp`):
+
+- `unrestricted` (default for a fresh install): `omp` runs with the same access
+  as a normal `omp` install on the host. Full filesystem, full tool set, full
+  network. This is the power-user mode and matches the current behavior.
+- `restricted`: each `omp` child runs inside a bubblewrap (`bwrap`) sandbox bound
+  to one workspace directory. The workspace is read-write, the runtime is
+  read-only, and a private `/tmp` is provided, all under a dedicated unprivileged
+  uid. Host home, other projects, and control-plane data are not visible.
+
+The OS boundary is required because `omp`'s own `--cwd`, `--add-dir`, and tool
+scoping are convenience, not a security boundary: a `bash` tool can reach outside
+the cwd unless the process is confined. A dedicated unprivileged agent user plus
+systemd hardening is the backstop.
+
+Granularity: a server default with a per-project override. The server value lands
+in Phase 4; the per-project override lands with the project registry (Phase 7).
+
+Notes:
+
+- The agent still needs outbound network access to reach model providers, so
+  `restricted` confines the filesystem, not the network. Network confinement
+  would require routing model calls through a local proxy and is future work.
+- If `restricted` is selected but bubblewrap is unavailable, the agent host must
+  refuse to start the child rather than run it unrestricted. No silent
+  downgrade, matching the connection-mode rule.
+- The mode is enforced only in the agent host. The control plane and the app
+  carry and display the mode; they never implement confinement.
+- `omp`'s own per-session knobs (`--cwd`, `--profile`, `--session-dir`,
+  `--tools`, `--no-pty`, `--approval-mode`) layer on top of either mode.
 
 ---
 

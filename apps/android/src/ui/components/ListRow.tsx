@@ -14,6 +14,8 @@ interface ListRowProps {
   accessibilityLabel?: string;
   showChevron?: boolean;
   divider?: boolean;
+  /** Tighter row for shell chrome. Defaults to false. */
+  dense?: boolean;
 }
 
 /** One row in a grouped list. The whole row is a single accessible unit. */
@@ -27,6 +29,7 @@ export function ListRow({
   accessibilityLabel,
   showChevron = false,
   divider = true,
+  dense = false,
 }: ListRowProps): React.JSX.Element {
   const theme = useTheme();
   const content = (
@@ -35,12 +38,12 @@ export function ListRow({
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.space[3],
-        minHeight: 52,
-        paddingVertical: theme.space[2],
+        minHeight: dense ? theme.row.dense : 52,
+        paddingVertical: dense ? theme.space[1] : theme.space[2],
       }}>
       {leading}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="bodyStrong">{title}</Text>
+        <Text variant={dense ? 'bodySmStrong' : 'bodyStrong'}>{title}</Text>
         {subtitle ? (
           <Text variant="caption" color={theme.color.text.secondary}>
             {subtitle}
@@ -48,7 +51,7 @@ export function ListRow({
         ) : null}
       </View>
       {value ? (
-        <Text variant="body" color={theme.color.text.secondary} numberOfLines={1}>
+        <Text variant="caption" color={theme.color.text.secondary} numberOfLines={1}>
           {value}
         </Text>
       ) : null}

@@ -12,11 +12,18 @@ export interface EntryParams {
   code?: string;
 }
 
+/** The `Session` route renders the active tab; `id` opens that session first. */
+export interface SessionParams {
+  id?: string;
+}
+
 export type RootStackParamList = {
   Welcome: undefined;
   Connect: EntryParams | undefined;
   Pair: EntryParams | undefined;
-  Home: undefined;
+  Sessions: undefined;
+  Session: SessionParams | undefined;
+  Devices: undefined;
   Debug: undefined;
 };
 

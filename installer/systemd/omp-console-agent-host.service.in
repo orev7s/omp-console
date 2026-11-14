@@ -1,0 +1,39 @@
+[Unit]
+Description=OMP Console agent host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+WorkingDirectory=@PREFIX@
+Environment=NODE_ENV=production
+Environment=OMP_AGENT_HOST_RUNTIME_DIR=@RUNTIME_DIR@
+Environment=OMP_AGENT_HOST_DATA_DIR=@AGENT_DATA_DIR@
+Environment=OMP_AGENT_HOST_SESSIONS_DIR=@AGENT_DATA_DIR@/sessions
+Environment=OMP_AGENT_HOST_WORKSPACE_ROOT=@AGENT_DATA_DIR@/workspaces
+Environment=OMP_AGENT_HOST_CONFINEMENT=@CONFINEMENT@
+EnvironmentFile=-/etc/omp-console/agent-host.env
+ExecStart=@NODE_BIN@ @PREFIX@/apps/agent-host/dist/src/index.js
+Restart=always
+RestartSec=2
+
+# Unrestricted agents are meant to reach the host, so the unit allows writes
+# outside the service data directory. /usr, /boot, and /etc stay read-only.
+# Restricted mode adds a per-child bubblewrap sandbox; that, not this unit, is
+# the boundary.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=false
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+ReadWritePaths=@DATA_DIR@
+
+[Install]
+WantedBy=multi-user.target

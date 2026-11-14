@@ -75,6 +75,36 @@ print_summary() {
     printf '\n'
     if [ -n "${PAIRING_CODE:-}" ]; then
       printf '  Pairing code:   %s\n' "${PAIRING_CODE}"
+
+      local authority="${PUBLIC_URL#https://}"
+      authority="${authority#http://}"
+      authority="${authority%%/*}"
+      local pair_host="${authority%%:*}"
+      local pair_port=""
+      if [ "${authority}" != "${pair_host}" ]; then
+        pair_port="${authority##*:}"
+      fi
+      local pair_mode="https_domain"
+      case "${CADDY_MODE}" in
+        ip) pair_mode="https_ip" ;;
+        private) pair_mode="https_private" ;;
+        none) pair_mode="http" ;;
+      esac
+      if [ -z "${pair_port}" ] && [ "${pair_mode}" != "http" ]; then
+        pair_port="443"
+      fi
+      local deep_link="ompconsole://pair?host=${pair_host}&code=${PAIRING_CODE}&mode=${pair_mode}"
+      if [ -n "${pair_port}" ]; then
+        deep_link="${deep_link}&port=${pair_port}"
+      fi
+      printf '  Pair link:      %s\n' "${deep_link}"
+      printf '\n'
+      printf '  Scan this with the OMP Console app if it is installed:\n'
+      if command -v qrencode >/dev/null 2>&1; then
+        qrencode -t ANSIUTF8 "${deep_link}" || true
+      else
+        printf '  (install qrencode on the server to also print a scannable code)\n'
+      fi
       printf '\n'
       printf '  This code is shown once. Enter it in the app or the browser build.\n'
       printf '  It is single use. Mint another with:\n'

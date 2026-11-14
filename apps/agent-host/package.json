@@ -1,0 +1,28 @@
+{
+  "name": "@omp-console/agent-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Owns Oh My Pi (omp) child processes. The only component that speaks OMP RPC.",
+  "main": "./dist/src/index.js",
+  "bin": {
+    "omp-console-agent-host": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/src/index.js",
+    "probe": "tsx src/cli.ts probe",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@omp-console/agent-protocol": "*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

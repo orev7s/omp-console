@@ -1,10 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { ApiErrorResponseSchema, type ErrorCode } from "@omp-console/protocol";
+import { ApiErrorResponseSchema, hasScope, type ErrorCode } from "@omp-console/protocol";
+import type { AgentHostClient } from "../agenthost/client.js";
 import type { AuthService } from "../auth/index.js";
 import type { RateLimiter } from "../auth/rate-limit.js";
 import type { Config } from "../config/index.js";
 import type { Logger } from "../log/index.js";
 import type { Store } from "../store/index.js";
+import type { SessionRegistry } from "../sessions/registry.js";
+import type { WsHub } from "../ws/hub.js";
 import { requestId } from "../util/id.js";
 import { HttpError } from "./errors.js";
 import type { RequestContext, RouteResult, Router } from "./router.js";
@@ -15,7 +18,10 @@ export interface HttpHandlerDeps {
   log: Logger;
   store: Store;
   auth: AuthService;
-  rateLimiter: RateLimiter;
+  hub: WsHub;
+  agent: AgentHostClient;
+  registry: SessionRegistry;
+  limiters: { default: RateLimiter; pairing: RateLimiter };
 }
 
 function extractBearer(header: string | undefined): string | null {
@@ -94,7 +100,9 @@ async function handle(
     if (!match) throw HttpError.notFound("No such endpoint.");
 
     if (match.route.options.rateLimit) {
-      const limited = deps.rateLimiter.consume(`${url.pathname}:${remote}`);
+      const limiter =
+        match.route.options.rateLimit === "pairing" ? deps.limiters.pairing : deps.limiters.default;
+      const limited = limiter.consume(`${url.pathname}:${remote}`);
       if (!limited.allowed) {
         throw HttpError.rateLimited(
           "Too many requests. Try again shortly.",
@@ -110,6 +118,13 @@ async function handle(
       if (!device) throw HttpError.unauthorized("Missing or invalid credentials.");
     }
 
+    const requiredScope = match.route.options.scope;
+    if (requiredScope) {
+      if (!device || !hasScope(device.scopes, requiredScope)) {
+        throw HttpError.forbidden(`This device does not have the "${requiredScope}" scope.`);
+      }
+    }
+
     const body = await readBody(req, deps.config.maxBodyBytes);
     const ctx: RequestContext = {
       req,
@@ -120,11 +135,15 @@ async function handle(
       requestId: id,
       remote,
       device,
+      params: match.params,
       body,
       log,
       config: deps.config,
       store: deps.store,
       auth: deps.auth,
+      hub: deps.hub,
+      agent: deps.agent,
+      registry: deps.registry,
     };
 
     const result: RouteResult = await match.route.handler(ctx);

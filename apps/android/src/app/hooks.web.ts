@@ -1,9 +1,9 @@
 import { createContext, useContext } from 'react';
-import type { AppNavigation, EntryParams, RouteName } from './navigationTypes';
+import type { AppNavigation, RootStackParamList, RouteName } from './navigationTypes';
 
 export interface WebNavState {
   navigation: AppNavigation;
-  route: { name: RouteName; params?: EntryParams };
+  route: { name: RouteName; params?: RootStackParamList[RouteName] };
 }
 
 /**

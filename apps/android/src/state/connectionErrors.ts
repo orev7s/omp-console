@@ -52,6 +52,13 @@ export function describeError(error: unknown): ConnectionError {
           message: 'The address answered, but not as an omp.console server. Check the address and port.',
           retryable: true,
         };
+      case 'forbidden':
+        return {
+          code: error.code,
+          title: 'Not allowed',
+          message: 'This device does not have permission for that. Use a device with management access.',
+          retryable: false,
+        };
       default:
         if (error.status >= 500) {
           return {

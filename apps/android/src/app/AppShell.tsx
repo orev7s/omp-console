@@ -42,7 +42,7 @@ export function AppShell(): React.JSX.Element {
     <SafeAreaProvider style={{ flex: 1 }}>
       <StatusBar barStyle={theme.mode === 'dark' ? 'light-content' : 'dark-content'} />
       {hydrated ? (
-        <AppNavigator initialRouteName={token && host ? 'Home' : 'Welcome'} navTheme={navTheme} />
+        <AppNavigator initialRouteName={token && host ? 'Sessions' : 'Welcome'} navTheme={navTheme} />
       ) : (
         <Splash />
       )}

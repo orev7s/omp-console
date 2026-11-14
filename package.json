@@ -3,20 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Android app and VPS control plane for running Oh My Pi agents remotely.",
+  "description": "Coding environment for running and steering Oh My Pi agents on your own VPS.",
   "workspaces": [
     "packages/*",
-    "apps/backend"
+    "apps/backend",
+    "apps/agent-host"
   ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "build": "npm run build:protocol && npm run build:backend",
+    "build": "npm run build:protocol && npm run build:agent-protocol && npm run build:backend && npm run build:agent-host",
     "build:protocol": "npm run build -w @omp-console/protocol",
+    "build:agent-protocol": "npm run build -w @omp-console/agent-protocol",
     "build:backend": "npm run build -w @omp-console/backend",
-    "typecheck": "npm run typecheck -w @omp-console/protocol && npm run typecheck -w @omp-console/backend",
+    "build:agent-host": "npm run build -w @omp-console/agent-host",
+    "typecheck": "npm run build:protocol && npm run build:agent-protocol && npm run typecheck -w @omp-console/protocol && npm run typecheck -w @omp-console/agent-protocol && npm run typecheck -w @omp-console/backend && npm run typecheck -w @omp-console/agent-host",
     "test": "npm run build:protocol && npm run test -w @omp-console/backend",
+    "test:agent-host": "npm run build:agent-protocol && npm run test -w @omp-console/agent-host",
+    "test:all": "npm run test && npm run test:agent-host",
     "dev": "npm run build:protocol && npm run dev -w @omp-console/backend",
     "start": "npm run start -w @omp-console/backend"
   }

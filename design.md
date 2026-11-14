@@ -30,9 +30,11 @@ omp.console is the surface you reach your machines from. Oh My Pi agents run on
 servers you own. The console is the pane of glass in your hand: it connects, it
 stays connected, and it lets you steer.
 
-Point of view: this is a connection tool, not a dashboard. The connection is the
-hero. Everything technical (port, TLS mode, protocol frames) is real but
-secondary, and stays behind an explicit door until the user asks for it.
+Point of view: this is a coding environment, not a chat app or a dashboard. A
+live agent session working on a real project is the point; the connection is how
+you reach it and is the hero of the shell. Everything technical (port, TLS mode,
+protocol frames) is real but secondary, and stays behind an explicit door until
+the user asks for it.
 
 Personality: quiet, exact, always live. Editorial, not corporate. Technical, not
 hacker. Confident enough to use one colour and a lot of space.
@@ -378,6 +380,11 @@ UI icon set (drawn):
 Sizes 16 / 20 / 24. Stroke 2 px, round caps. Colour from a semantic token only.
 Decorative beside a label; labelled when alone. No emoji, no coloured pictograms.
 
+Hard rule (ADR 0008): these abstract, functional glyphs are the entire icon
+vocabulary. There are no icons for sessions, agents, projects, or navigation.
+Session rows, tabs, and menu items are labeled with words, never a pictogram. The
+brand mark is the only logo asset on a product surface.
+
 ---
 
 ## 6. Motion
@@ -589,19 +596,17 @@ is short by default and forgiving of mistakes.
 
 ```
 Splash (hydrating)
-  | token + address exist -> Home
+  | token + address exist -> Sessions
   | otherwise             -> Welcome
 Welcome
   | Connect to my server  -> Connect
   | I already have a code -> Pair
 Connect
-  | address + mode valid  -> Pair (no token) | Home (token exists)
+  | address + mode valid  -> Pair (no token) | Sessions (token exists)
 Pair
-  | correct code          -> Home
-  | Skip (token exists)   -> Home
-Home
-  | Activity (debug)      -> Debug
-Debug
+  | correct code          -> Sessions
+  | Skip (token exists)   -> Sessions
+Sessions (Phase 5 shell, see the app shell below)
 ```
 
 Screen jobs:
@@ -617,17 +622,81 @@ Screen jobs:
    banner inline at the choice, and its acknowledgement control opens the
    confirmation sheet; Continue stays disabled until it is accepted. A quiet
    Unencrypted chip stays visible under the address. Transition: push to Pair, or
-   replace to Home when a token already exists.
+   replace to Sessions when a token already exists.
 4. Pair. Exchange the code for a device token. Header "Pair your device", a line
    on where the code comes from, the Code field, a Paste action, footer primary
    "Pair device". If no address is set, an inline row returns to Connect. If a
-   token exists, a ghost "Skip" is offered. On success, replace to Home.
-5. Home. Confirm the connection and show the next useful thing: "You are
-   connected", the server name, a live status indicator, a Secure or Unencrypted
-   chip, a small details block, footer secondary "Disconnect", and a quiet
-   "Activity" row into Debug. A failed reconnect shows a banner with Try again.
+   token exists, a ghost "Skip" is offered. On success, replace to Sessions.
+5. Sessions (the landing after Phase 5). The connected destination once onboarding
+   ends. The old `Home` content (the connection confirmation, server details,
+   Disconnect, and the rows into Devices, Connection, and Activity) moves into the
+   Settings sheet. See the app shell below. A failed reconnect shows a banner with
+   Try again.
 6. Debug. The server facts, the echo round trip, and the raw event log, off the
-   main path. Reachable only from Home.
+   main path. Reachable from Settings.
+
+### App shell (Phase 5, ADR 0008)
+
+Once onboarding ends, the app is session-first. `Home` is retired.
+
+```
+Sessions (landing)
+  | New session                -> Session
+  | open an existing session   -> Session (new tab)
+Settings (sheet, from the shell corner)
+  | Devices / Connection / Activity
+Session (active tab)
+  | tab strip switches sessions
+  | prompt input, streamed run, abort
+```
+
+Landing (`Sessions`): the recent-session list, grouped by Today, Yesterday,
+Earlier. Each row is the session title with the project folder as its subtitle.
+No row icon. One primary action, New session, in the footer. A compact live
+status element (the node plus the server name) sits in the header and opens
+Settings.
+
+Tabs: open sessions live in a horizontal tab strip at the top of the `Session`
+route. The active tab is marked with the signal colour; the strip scrolls when it
+overflows. A tab switches sessions, it does not push a route. Closing the last
+tab returns to the landing.
+
+Settings sheet: server details, the Secure or Unencrypted chip, Devices,
+Connection, and Activity. Disconnect lives here. The connection machinery stays
+off the main path, exactly as it does during onboarding.
+
+No project rail in Phase 5. The OpenCode rail is project-based; ours has no
+project registry to drive it until Phase 7, so the landing is the selector for
+now. The rail arrives with the registry. By the same token there are no item
+icons here, unlike OpenCode: rows, tabs, and actions are words.
+
+### Run view density (Phase 5)
+
+The live run view follows OpenCode V2 density rather than the roomy onboarding
+screens. The token layer carries the dense steps: `type.bodySm` (14/400),
+`type.bodySmStrong` (14/600), and `type.title3` (16/600) for transcript text and
+compact headings, and the row heights `row.compact` (36), `row.tab` (42),
+`row.dense` (44), and `row.settings` (48). The run view uses `row.dense` for
+session and project rows, `row.tab` for the tab strip with a 2 px signal
+underline on the active tab, and `row.compact` for collapsible headers. Buttons
+and fields keep the 48 dp touch-target floor; the dense list rows are structural
+heights below it, as the primitives comment records.
+
+Assistant output renders as Markdown on those tokens: paragraphs, headings,
+ordered and unordered lists, fenced code (its language shown as a `monoLabel`),
+links, bold, italic, and inline code. A level 1 or 2 heading maps to `title3`;
+deeper headings fall back to `bodySmStrong`. User messages render as Markdown in
+a sunken bubble aligned to the right; other non-assistant frames (tool results
+and similar) render as a full-width muted block in `type.mono` on the sunken
+surface, not as a user bubble.
+
+Thinking and tool calls are collapsible blocks on the sunken surface, collapsed
+by default. The only affordance is the header text plus a trailing Show or Hide
+word, because the app ships no disclosure glyph. A thinking block is headed
+`Thought`; a tool block is headed in words (`Ran bash`, `Tool read`), and its
+status is a word inside (`Running`, `Done`, `Failed`), with the danger tone on a
+failure. There are no tool pictograms, no per-session icons, and no emoji,
+consistent with ADR 0008. A tab closes through the word Close, not a glyph.
 
 Deep-link readiness: routes accept optional `host`, `port`, `mode`, `code`
 params and the navigator defines a `linking` config, so a future installer or QR
@@ -701,8 +770,9 @@ The old UI did all of these. Never again.
 
 ## 12. Open items
 
-- Session, monitoring, files, and terminal screens are later phases. Their
-  tokens exist; their flows are not designed here.
+- Session, monitoring, files, and terminal screens: the session shell is designed
+  in Phase 5 (section 9). Monitoring, files, and terminal remain later phases;
+  their tokens exist and their flows are not designed here.
 - Light and dark were verified in the browser harness. Android device rendering
   is pending (no reliable emulator on the build host).
 - Native font bundling is in place; it was not device-verified.

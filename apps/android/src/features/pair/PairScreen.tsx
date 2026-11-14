@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useAppNavigation, useAppRouteParams } from '../../app/hooks';
 import type { EntryParams } from '../../app/navigationTypes';
@@ -36,13 +36,35 @@ export function PairScreen(): React.JSX.Element {
   const [address, setAddress] = useState(params?.host ?? config.host);
   const [addressError, setAddressError] = useState<string | null>(null);
 
+  // A QR or deep link carries host, mode, port, and code. Apply it once so the
+  // pairing screen is self-contained and the user does not retype anything.
+  const appliedLink = useRef(false);
+  useEffect(() => {
+    if (appliedLink.current) return;
+    appliedLink.current = true;
+    if (!params) return;
+    const patch: { host?: string; port?: number; mode?: typeof config.mode } = {};
+    if (params.host) patch.host = params.host;
+    if (params.mode) patch.mode = params.mode;
+    const rawPort = params.port as number | string | undefined;
+    const port = typeof rawPort === 'string' ? Number(rawPort) : rawPort;
+    if (typeof port === 'number' && Number.isFinite(port) && port > 0) {
+      patch.port = port;
+    } else if (params.mode === 'http') {
+      patch.port = 80;
+    } else if (params.mode) {
+      patch.port = 443;
+    }
+    if (Object.keys(patch).length > 0) setConfig(patch);
+  }, [params, setConfig]);
+
   const needsAddress = config.host.trim() === '';
   const paired = token !== null;
 
-  const continueToHome = async (): Promise<void> => {
+  const continueToSessions = async (): Promise<void> => {
     clearError();
     await connect();
-    navigation.replace('Home');
+    navigation.replace('Sessions');
   };
 
   const submit = async (): Promise<void> => {
@@ -60,7 +82,7 @@ export function PairScreen(): React.JSX.Element {
     const ok = await pair(code);
     if (ok) {
       await connect();
-      navigation.replace('Home');
+      navigation.replace('Sessions');
     }
   };
 
@@ -79,7 +101,7 @@ export function PairScreen(): React.JSX.Element {
           <Button
             testID="pair-continue"
             label="Continue to server"
-            onPress={() => void continueToHome()}
+            onPress={() => void continueToSessions()}
             loading={busy}
           />
         ) : (

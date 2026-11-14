@@ -1,23 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { ConnectScreen } from '../features/connect/ConnectScreen';
 import { DebugScreen } from '../features/debug/DebugScreen';
-import { HomeScreen } from '../features/home/HomeScreen';
+import { DevicesScreen } from '../features/devices/DevicesScreen';
 import { WelcomeScreen } from '../features/onboarding/WelcomeScreen';
 import { PairScreen } from '../features/pair/PairScreen';
+import { SessionScreen } from '../features/sessions/SessionScreen';
+import { SessionsScreen } from '../features/sessions/SessionsScreen';
 import { WebNavContext, type WebNavState } from './hooks.web';
-import type { AppNavigation, EntryParams, RootStackParamList, RouteName } from './navigationTypes';
+import type { AppNavigation, RootStackParamList, RouteName } from './navigationTypes';
 
 const SCREENS: Record<RouteName, React.ComponentType> = {
   Welcome: WelcomeScreen,
   Connect: ConnectScreen,
   Pair: PairScreen,
-  Home: HomeScreen,
+  Sessions: SessionsScreen,
+  Session: SessionScreen,
+  Devices: DevicesScreen,
   Debug: DebugScreen,
 };
 
 interface WebRoute {
   name: RouteName;
-  params?: EntryParams;
+  params?: RootStackParamList[RouteName];
 }
 
 /**
@@ -38,12 +42,12 @@ export function AppNavigator({
         setStack(current => {
           const existing = current.findIndex(route => route.name === name);
           if (existing >= 0) return current.slice(0, existing + 1);
-          return [...current, { name, params: params as EntryParams | undefined }];
+          return [...current, { name, params: params as RootStackParamList[RouteName] }];
         }),
       replace: (name, params) =>
         setStack(current => [
           ...current.slice(0, -1),
-          { name, params: params as EntryParams | undefined },
+          { name, params: params as RootStackParamList[RouteName] },
         ]),
       goBack: () => setStack(current => (current.length > 1 ? current.slice(0, -1) : current)),
       reset: state => setStack(state.routes.map(route => ({ name: route.name }))),

@@ -44,4 +44,16 @@ export class HttpError extends Error {
   static internal(message = "Internal server error."): HttpError {
     return new HttpError(500, "internal", message, undefined, true);
   }
+
+  /**
+   * The agent host is not reachable. The control plane stays up and the app can
+   * retry once L2 reconnects. `agent_unavailable` is deliberately outside the
+   * shared ErrorCode set: it is control-plane specific and the wire schema
+   * accepts any stable code string.
+   */
+  static agentUnavailable(
+    message = "The agent host is not connected. Retry once it is back.",
+  ): HttpError {
+    return new HttpError(503, "agent_unavailable" as ErrorCode, message, undefined, true);
+  }
 }
